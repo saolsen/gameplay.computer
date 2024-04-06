@@ -33,7 +33,7 @@ export const AgentPlayer = z.object({
 });
 export type AgentPlayer = z.infer<typeof AgentPlayer>;
 
-export const Player = z.union([UserPlayer, AgentPlayer]);
+export const Player = z.discriminatedUnion("kind", [UserPlayer, AgentPlayer]);
 export type Player = z.infer<typeof Player>;
 
 export const StatusKind = z.enum(["in_progress", "over"]);

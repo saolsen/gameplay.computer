@@ -1,8 +1,57 @@
-import { sqliteTable, text, integer, primaryKey, index } from "npm:drizzle-orm@0.30.7/sqlite-core";
+import {
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+} from "npm:drizzle-orm@0.30.7/sqlite-core";
 import { LibSQLDatabase } from "npm:drizzle-orm@0.30.7/libsql";
 import { z } from "npm:zod@3.22.4";
 
 import { GameKind, PlayerKind, StatusKind } from "./gameplay_game.ts";
+
+export class Unreachable extends Error {
+  constructor(x: never) {
+    super(`Unreachable: ${x}`);
+  }
+}
+
+export class Todo extends Error {
+  constructor(message?: string) {
+    super(message || "Not Implemented");
+  }
+}
+
+export class NotFound extends Error {
+  object_type: string;
+  object_id: string;
+
+  constructor(object_type: string, object_id: string) {
+    super("Not Found");
+    this.object_type = object_type;
+    this.object_id = object_id;
+  }
+}
+
+export class NotAllowed extends Error {
+  user_id: UserId;
+  object_type: string;
+  object_id: string | null;
+  reason?: string;
+
+  constructor(
+    user_id: UserId,
+    object_type: string,
+    object_id: string | null,
+    reason?: string,
+  ) {
+    super("Unauthorized");
+    this.user_id = user_id;
+    this.object_type = object_type;
+    this.object_id = object_id;
+    this.reason = reason;
+  }
+}
 
 export type UserId = string & { readonly UserId: unique symbol };
 export const UserId = z
@@ -46,7 +95,9 @@ export type SelectAgent = typeof agents.$inferSelect;
 export const matches = sqliteTable("matches", {
   match_id: text("match_id").$type<MatchId>().primaryKey(),
   game: text("game").$type<GameKind>().notNull(),
-  created_by: text("created_by").$type<UserId>().notNull().references(() => users.user_id),
+  created_by: text("created_by").$type<UserId>().notNull().references(() =>
+    users.user_id
+  ),
   turn_number: integer("turn_number").notNull(),
   created_at: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
 }, (table) => {
@@ -60,14 +111,18 @@ export type InsertMatch = typeof matches.$inferInsert;
 export type SelectMatch = typeof matches.$inferSelect;
 
 export const match_players = sqliteTable("match_players", {
-  match_id: text("match_id").$type<MatchId>().notNull().references(() => matches.match_id),
+  match_id: text("match_id").$type<MatchId>().notNull().references(() =>
+    matches.match_id
+  ),
   player_number: integer("player_number").notNull(),
   player_kind: text("player_kind").$type<PlayerKind>().notNull(),
   user_id: text("user_id").$type<UserId>().references(() => users.user_id),
-  agent_id: text("agent_id").$type<AgentId>().references(() => matches.match_id),
+  agent_id: text("agent_id").$type<AgentId>().references(() =>
+    matches.match_id
+  ),
 }, (table) => {
   return {
-    pk: primaryKey({columns: [table.match_id, table.player_number]}),
+    pk: primaryKey({ columns: [table.match_id, table.player_number] }),
     userIdx: index("user_idx").on(table.user_id),
     agentIdx: index("agent_idx").on(table.agent_id),
   };
@@ -77,7 +132,9 @@ export type InsertMatchPlayer = typeof match_players.$inferInsert;
 export type SelectMatchPlayer = typeof match_players.$inferSelect;
 
 export const match_turns = sqliteTable("match_turns", {
-  match_id: text("match_id").$type<MatchId>().notNull().references(() => matches.match_id),
+  match_id: text("match_id").$type<MatchId>().notNull().references(() =>
+    matches.match_id
+  ),
   turn_number: integer("turn_number").notNull(),
   status_kind: text("status_kind").$type<StatusKind>().notNull(),
   status: text("status", { mode: "json" }).notNull(),
@@ -87,7 +144,7 @@ export const match_turns = sqliteTable("match_turns", {
   created_at: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
 }, (table) => {
   return {
-    pk: primaryKey({columns: [table.match_id, table.turn_number]}),
+    pk: primaryKey({ columns: [table.match_id, table.turn_number] }),
     statusKindIdx: index("status_kind_idx").on(table.status_kind),
   };
 });
@@ -95,6 +152,6 @@ export const match_turns = sqliteTable("match_turns", {
 export type InsertMatchTurn = typeof match_turns.$inferInsert;
 export type SelectMatchTurn = typeof match_turns.$inferSelect;
 
-export const schema = { users, agents, matches, match_players };
+export const schema = { users, agents, matches, match_players, match_turns };
 
 export type GamePlayDB = LibSQLDatabase<typeof schema>;

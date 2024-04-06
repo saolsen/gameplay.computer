@@ -1,25 +1,11 @@
 /** @jsxImportSource npm:hono@4.2.2/jsx */
-import { Hono, MiddlewareHandler } from "npm:hono@4.2.2";
-import { Child, FC } from "npm:hono@4.2.2/jsx";
+import { FC } from "npm:hono@4.2.2/jsx";
 import { z } from "npm:zod@3.22.4";
 
-import { SelectUser } from "./gameplay_schema.ts";
+import { SelectUser, Unreachable } from "./gameplay_schema.ts";
 
-import { GameError, NotAllowed, NotFound, Unreachable, Player } from "./gameplay_game.ts";
-import {
-  MatchByUserIdI,
-  MatchI,
-  MatchRecord,
-  StatusKind,
-} from "../../matches/types.ts";
-import {
-  createMatch,
-  getMatchView,
-  MatchView,
-  takeMatchUserTurn,
-} from "../../matches/service.ts";
-import {  } from "../../errors.ts";
-import { Connect4Action, Connect4State } from "./gameplay_connect4.ts";
+import { Player } from "./gameplay_game.ts";
+import { Connect4CurrentTurn, Connect4MatchView } from "./gameplay_matches.ts";
 
 export const CreateConnect4MatchFormData = z.object({
   game: z.literal("connect4"),
@@ -36,8 +22,8 @@ export type CreateConnect4MatchFormData = z.infer<
 >;
 
 export function validateCreateConnect4MatchForm(
-  user: UserRecord,
-  data?: CreateConnect4MatchFormData | undefined
+  _user: SelectUser,
+  data?: CreateConnect4MatchFormData | undefined,
 ): {
   new_data: CreateConnect4MatchFormData;
   new_match?: {
@@ -178,54 +164,52 @@ export const CreateConnect4MatchForm: FC<{
 };
 
 export const Connect4Match: FC<{
-  user: UserRecord | undefined;
-  connect4_match: MatchView<Connect4Action, Connect4State>;
+  user: SelectUser | null;
+  connect4_match: Connect4MatchView;
 }> = ({ user, connect4_match }) => {
-  const last_turn = connect4_match.turns[connect4_match.turns.length - 1];
-  console.assert(last_turn.number === connect4_match.match.turn);
-  console.assert(last_turn.number === connect4_match.current_state.number);
-
   let header;
   let player: Player | undefined;
   let player_i: number | undefined;
-  switch (last_turn.status.status) {
+
+  const current_turn: Connect4CurrentTurn = connect4_match.current_turn;
+  switch (current_turn.status.status) {
     case "in_progress": {
-      const active_players = last_turn.status.active_players;
+      const active_players = current_turn.status.active_players;
       console.assert(active_players.length === 1);
       player_i = active_players[0];
-      player = connect4_match.match.players[player_i];
-      if (player_i === 0) {
-        header = (
-          <div>
-            <h2 class="text-4xl">Blue's turn</h2>
-            {player?.kind === "user" && player.username === user?.username ? (
-              <span class="text-2xl">That's you!</span>
-            ) : (
-              <span class="text-2xl">
-                Waiting on{" "}
-                {player.kind === "user"
-                  ? `User: ${player.username}`
-                  : `Agent: ${player.username}/${player.agentname}`}
-              </span>
-            )}
-          </div>
-        );
-      } else {
-        header = (
-          <div>
-            <h2 class="text-4xl">Red's turn</h2>
-            {player?.kind === "user" && player.username === user?.username ? (
-              <span class="text-2xl">That's you!</span>
-            ) : (
-              <span class="text-2xl">
-                Waiting on{" "}
-                {player.kind === "user"
-                  ? `User: ${player.username}`
-                  : `Agent: ${player.username}/${player.agentname}`}
-              </span>
-            )}
-          </div>
-        );
+      player = connect4_match.players[player_i];
+      if (player !== undefined) {
+        if (player_i === 0) {
+          header = (
+            <div>
+              <h2 class="text-4xl">Blue's turn</h2>
+              {player?.kind === "user" && player.username === user?.username
+                ? <span class="text-2xl">That's you!</span>
+                : (
+                  <span class="text-2xl">
+                    Waiting on {player.kind === "user"
+                      ? `User: ${player.username}`
+                      : `Agent: ${player.username}/${player.agentname}`}
+                  </span>
+                )}
+            </div>
+          );
+        } else {
+          header = (
+            <div>
+              <h2 class="text-4xl">Red's turn</h2>
+              {player?.kind === "user" && player.username === user?.username
+                ? <span class="text-2xl">That's you!</span>
+                : (
+                  <span class="text-2xl">
+                    Waiting on {player.kind === "user"
+                      ? `User: ${player.username}`
+                      : `Agent: ${player.username}/${player.agentname}`}
+                  </span>
+                )}
+            </div>
+          );
+        }
       }
       break;
     }
@@ -233,23 +217,21 @@ export const Connect4Match: FC<{
       header = (
         <div>
           <h2 class="text-4xl">Game Over</h2>
-          {last_turn.status.result.kind === "winner" &&
-          last_turn.status.result.players[0] === 0 ? (
-            <span class="text-2xl">Blue wins!</span>
-          ) : last_turn.status.result.kind === "winner" &&
-            last_turn.status.result.players[0] === 1 ? (
-            <span class="text-2xl">Red wins!</span>
-          ) : last_turn.status.result.kind === "draw" ? (
-            <span class="text-2xl">It's a draw!</span>
-          ) : (
-            <span class="text-2xl">Error</span>
-          )}
+          {current_turn.status.result.kind === "winner" &&
+              current_turn.status.result.players[0] === 0
+            ? <span class="text-2xl">Blue wins!</span>
+            : current_turn.status.result.kind === "winner" &&
+                current_turn.status.result.players[0] === 1
+            ? <span class="text-2xl">Red wins!</span>
+            : current_turn.status.result.kind === "draw"
+            ? <span class="text-2xl">It's a draw!</span>
+            : <span class="text-2xl">Error</span>}
         </div>
       );
       break;
     }
     default: {
-      throw new Unreachable(last_turn.status);
+      throw new Unreachable(current_turn.status);
     }
   }
 
@@ -280,7 +262,8 @@ export const Connect4Match: FC<{
           <svg x="0" y="0">
             {[...Array(7)].map((_, col) => {
               const cx = col * 100 + 50;
-              const create_turn_url = `/g/connect4/m/${connect4_match.match.id}/turns/create`;
+              const create_turn_url =
+                `/g/connect4/m/${connect4_match.match_id}/turns/create`;
               const hx_vals = JSON.stringify({
                 column: col,
               });
@@ -306,7 +289,7 @@ export const Connect4Match: FC<{
           return (
             <svg x={x} y="100">
               {[...Array(6)].map((_, row) => {
-                const p = connect4_match.current_state.state.board[col][row];
+                const p = current_turn.state.board[col][row];
                 const row_elems = [];
                 if (p !== null) {
                   const cy = 550 - row * 100;
@@ -317,7 +300,7 @@ export const Connect4Match: FC<{
                         cy={cy}
                         r="45"
                         class="text-blue-400 fill-current"
-                      />
+                      />,
                     );
                   } else {
                     row_elems.push(
@@ -326,7 +309,7 @@ export const Connect4Match: FC<{
                         cy={cy}
                         r="45"
                         class="text-red-400 fill-current"
-                      />
+                      />,
                     );
                   }
                 }

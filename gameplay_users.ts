@@ -3,7 +3,7 @@ import { uuidv7obj } from "npm:uuidv7@0.6.3";
 import { Uuid25 } from "npm:uuid25@0.1.4";
 import { eq } from "npm:drizzle-orm@0.30.7";
 
-import { schema, UserId, SelectUser, GamePlayDB } from "./gameplay_schema.ts";
+import { GamePlayDB, schema, SelectUser, UserId } from "./gameplay_schema.ts";
 
 export function userId(): UserId {
   return `u_${Uuid25.fromBytes(uuidv7obj().bytes).value}` as UserId;
@@ -11,9 +11,11 @@ export function userId(): UserId {
 
 export async function fetchUserByUsername(
   db: GamePlayDB,
-  username: string
+  username: string,
 ): Promise<SelectUser | null> {
-  const users = await db.select().from(schema.users).where(eq(schema.users.username, username));
+  const users = await db.select().from(schema.users).where(
+    eq(schema.users.username, username),
+  );
   if (users.length > 0) {
     return users[0];
   }
@@ -33,7 +35,9 @@ export async function syncClerkUser(
   db: GamePlayDB,
   clerk_user: ClerkUser,
 ): Promise<SelectUser> {
-  const users = await db.select().from(schema.users).where(eq(schema.users.clerk_user_id, clerk_user.clerk_user_id));
+  const users = await db.select().from(schema.users).where(
+    eq(schema.users.clerk_user_id, clerk_user.clerk_user_id),
+  );
   if (users.length > 0) {
     const user = users[0];
 
@@ -60,8 +64,10 @@ export async function syncClerkUser(
     if (Object.keys(changed_fields).length == 0) {
       return user;
     }
-    
-    await db.update(schema.users).set(changed_fields).where(eq(schema.users.user_id, user.user_id));
+
+    await db.update(schema.users).set(changed_fields).where(
+      eq(schema.users.user_id, user.user_id),
+    );
     // todo: user updated event
     return { ...user, ...changed_fields };
   }

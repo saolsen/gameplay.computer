@@ -1,3 +1,3 @@
-import app from "./gameplay_computer_dev.ts"
+import app from "./gameplay_computer_dev.ts";
 
 Deno.serve(app);

@@ -1,9 +1,9 @@
-import type { Config } from 'drizzle-kit';
+import type { Config } from "drizzle-kit";
 
 export default {
-  schema: './schema.ts',
-  out: './migrations',
-  driver: 'better-sqlite',
+  schema: "./schema.ts",
+  out: "./migrations",
+  driver: "better-sqlite",
   dbCredentials: {
     url: "./gameplay.db",
   },
