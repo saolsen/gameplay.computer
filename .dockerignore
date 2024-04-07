@@ -1,0 +1,4 @@
+.vscode
+.envrc
+fly.toml
+drizzle/node_modules
