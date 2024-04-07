@@ -29,6 +29,17 @@ import {
 } from "./gameplay_matches.ts";
 import { Connect4Action } from "./gameplay_connect4.ts";
 
+import { tracedPromise } from "./gameplay_tracing.ts";
+
+export function background<
+  // deno-lint-ignore no-explicit-any
+  F extends (...args: any[]) => Promise<void>
+>(task_name: string, fn: F, ...args: Parameters<F>): Promise<void> {
+  return tracedPromise<void, F>(`background: ${task_name}`, fn, ...args).catch((e) => {
+    console.error(`Background task ${task_name} failed:`, e);
+  });
+}
+
 export type ContextVars = {
   // Set by the wrapping app.
   db: GamePlayDB;
@@ -670,7 +681,7 @@ app.get("/g/:game/m/:match_id", async (c: GamePlayContext) => {
           { href: `/g/${game}/m/${match_id}`, text: match_id },
         ]}
       >
-      </BreadCrumbs>
+      </BreadCrumbs>      
       <div id="match">
         <Match user={user} match_view={match_view}>{inner_view}</Match>
       </div>
@@ -708,6 +719,7 @@ app.post("/g/:game/m/:match_id/turns/create", async (c: GamePlayContext) => {
         );
       }
       const action = parsed_action.data;
+      // todo: Have this return the match view so we can do read-after-write.
       const result = await takeMatchUserTurn(c.get("db"), user, match_id, {
         game,
         action,
@@ -745,7 +757,17 @@ app.post("/g/:game/m/:match_id/turns/create", async (c: GamePlayContext) => {
     }
   }
 
+  background("test", async () => {
+    await sleep();
+    console.log("Background do the agent turn");
+    //throw new Error("Background error");
+  });
+
   return c.render(
     <Match user={user} match_view={match_view}>{inner_view}</Match>,
   );
 });
+
+export function sleep(milliseconds = 3000) {
+  return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
