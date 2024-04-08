@@ -7,16 +7,17 @@ import { getCookie } from "npm:hono/cookie";
 
 import { importSPKI, jwtVerify } from "jose";
 
-import { GamePlayDB, MatchId, SelectUser, Unreachable } from "./schema.ts";
-import { ClerkUser, syncClerkUser } from "./users.ts";
-import { GameKind } from "./game.ts";
-
+import { Connect4Action } from "./connect4/connect4.ts";
 import {
   Connect4Match,
   CreateConnect4MatchForm,
   CreateConnect4MatchFormData,
   validateCreateConnect4MatchForm,
-} from "./connect4_web.tsx";
+} from "./connect4/connect4_web.tsx";
+
+import { GamePlayDB, MatchId, SelectUser, Unreachable } from "./schema.ts";
+import { ClerkUser, syncClerkUser } from "./users.ts";
+import { GameKind } from "./game.ts";
 import {
   createMatch,
   fetchMatchById,
@@ -24,8 +25,6 @@ import {
   MatchView,
   takeMatchUserTurn,
 } from "./matches.ts";
-import { Connect4Action } from "./connect4.ts";
-
 import { tracedPromise } from "./tracing.ts";
 
 export function background<

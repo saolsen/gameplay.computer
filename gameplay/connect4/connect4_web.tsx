@@ -2,10 +2,9 @@
 import { FC } from "hono/jsx";
 import { z } from "zod";
 
-import { SelectUser, Unreachable } from "./schema.ts";
-
-import { Player } from "./game.ts";
-import { Connect4CurrentTurn, Connect4MatchView } from "./matches.ts";
+import { Player } from "../game.ts";
+import { Connect4CurrentTurn, Connect4MatchView } from "../matches.ts";
+import { SelectUser, Unreachable } from "../schema.ts";
 
 export const CreateConnect4MatchFormData = z.object({
   game: z.literal("connect4"),

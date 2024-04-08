@@ -4,6 +4,12 @@ import { Uuid25 } from "uuid25";
 import { and, eq } from "drizzle-orm";
 
 import {
+  Connect4,
+  Connect4Action,
+  Connect4State,
+} from "./connect4/connect4.ts";
+
+import {
   GamePlayDB,
   MatchId,
   NotAllowed,
@@ -16,8 +22,6 @@ import {
 } from "./schema.ts";
 import { GameError, GameKind, Player, Status } from "./game.ts";
 import { fetchUserByUsername } from "./users.ts";
-
-import { Connect4, Connect4Action, Connect4State } from "./connect4.ts";
 
 export function matchId(): MatchId {
   return `m_${Uuid25.fromBytes(uuidv7obj().bytes).value}` as MatchId;

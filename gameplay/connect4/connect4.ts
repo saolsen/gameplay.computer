@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { Game, GameError, Player, Status } from "./game.ts";
+import { Game, GameError, Player, Status } from "../game.ts";
 
 export const COLS = 7;
 export const ROWS = 6;
