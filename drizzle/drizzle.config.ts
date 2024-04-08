@@ -3,8 +3,9 @@ import type { Config } from "drizzle-kit";
 export default {
   schema: "./schema.ts",
   out: "./migrations",
-  driver: "better-sqlite",
+  driver: "turso",
   dbCredentials: {
-    url: "./gameplay.db",
+    url: process.env.DB_URL!,
+    authToken: process.env.DB_TOKEN!,
   },
 } satisfies Config;
