@@ -1,16 +1,16 @@
+import { z } from "zod";
 import {
   index,
   integer,
   primaryKey,
   sqliteTable,
   text,
-} from "npm:drizzle-orm@0.30.7/sqlite-core";
-import { LibSQLDatabase } from "npm:drizzle-orm@0.30.7/libsql";
-import { z } from "npm:zod@3.22.4";
+} from "drizzle-orm/sqlite-core";
+import { LibSQLDatabase } from "drizzle-orm/libsql";
 
-import { GameKind, PlayerKind, Status, StatusKind } from "./gameplay_game.ts";
+import { GameKind, PlayerKind, Status, StatusKind } from "./game.ts";
 
-import { Connect4Action, Connect4State } from "./gameplay_connect4.ts";
+import { Connect4Action, Connect4State } from "./connect4.ts";
 
 export class Unreachable extends Error {
   constructor(x: never) {
@@ -45,7 +45,7 @@ export class NotAllowed extends Error {
     user_id: UserId,
     object_type: string,
     object_id: string | null,
-    reason?: string,
+    reason?: string
   ) {
     super("Unauthorized");
     this.user_id = user_id;
@@ -117,7 +117,7 @@ export const matches = sqliteTable(
       gameIdx: index("game_idx").on(table.game),
       createdByIdx: index("created_by_idx").on(table.created_by),
     };
-  },
+  }
 );
 
 export type InsertMatch = typeof matches.$inferInsert;
@@ -145,7 +145,7 @@ export const match_players = sqliteTable(
       userIdx: index("user_idx").on(table.user_id),
       agentIdx: index("agent_idx").on(table.agent_id),
     };
-  },
+  }
 );
 
 export type InsertMatchPlayer = typeof match_players.$inferInsert;
@@ -171,7 +171,7 @@ export const match_turns = sqliteTable(
       pk: primaryKey({ columns: [table.match_id, table.turn_number] }),
       statusKindIdx: index("status_kind_idx").on(table.status_kind),
     };
-  },
+  }
 );
 
 export type InsertMatchTurn = typeof match_turns.$inferInsert;

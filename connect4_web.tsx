@@ -1,11 +1,11 @@
-/** @jsxImportSource npm:hono@4.2.2/jsx */
-import { FC } from "npm:hono@4.2.2/jsx";
-import { z } from "npm:zod@3.22.4";
+/** @jsxImportSource hono/jsx */
+import { FC } from "hono/jsx";
+import { z } from "zod";
 
-import { SelectUser, Unreachable } from "./gameplay_schema.ts";
+import { SelectUser, Unreachable } from "./schema.ts";
 
-import { Player } from "./gameplay_game.ts";
-import { Connect4CurrentTurn, Connect4MatchView } from "./gameplay_matches.ts";
+import { Player } from "./game.ts";
+import { Connect4CurrentTurn, Connect4MatchView } from "./matches.ts";
 
 export const CreateConnect4MatchFormData = z.object({
   game: z.literal("connect4"),
@@ -23,7 +23,7 @@ export type CreateConnect4MatchFormData = z.infer<
 
 export function validateCreateConnect4MatchForm(
   _user: SelectUser,
-  data?: CreateConnect4MatchFormData | undefined,
+  data?: CreateConnect4MatchFormData | undefined
 ): {
   new_data: CreateConnect4MatchFormData;
   new_match?: {
@@ -183,30 +183,32 @@ export const Connect4Match: FC<{
           header = (
             <div>
               <h2 class="text-4xl">Blue's turn</h2>
-              {player?.kind === "user" && player.username === user?.username
-                ? <span class="text-2xl">That's you!</span>
-                : (
-                  <span class="text-2xl">
-                    Waiting on {player.kind === "user"
-                      ? `User: ${player.username}`
-                      : `Agent: ${player.username}/${player.agentname}`}
-                  </span>
-                )}
+              {player?.kind === "user" && player.username === user?.username ? (
+                <span class="text-2xl">That's you!</span>
+              ) : (
+                <span class="text-2xl">
+                  Waiting on{" "}
+                  {player.kind === "user"
+                    ? `User: ${player.username}`
+                    : `Agent: ${player.username}/${player.agentname}`}
+                </span>
+              )}
             </div>
           );
         } else {
           header = (
             <div>
               <h2 class="text-4xl">Red's turn</h2>
-              {player?.kind === "user" && player.username === user?.username
-                ? <span class="text-2xl">That's you!</span>
-                : (
-                  <span class="text-2xl">
-                    Waiting on {player.kind === "user"
-                      ? `User: ${player.username}`
-                      : `Agent: ${player.username}/${player.agentname}`}
-                  </span>
-                )}
+              {player?.kind === "user" && player.username === user?.username ? (
+                <span class="text-2xl">That's you!</span>
+              ) : (
+                <span class="text-2xl">
+                  Waiting on{" "}
+                  {player.kind === "user"
+                    ? `User: ${player.username}`
+                    : `Agent: ${player.username}/${player.agentname}`}
+                </span>
+              )}
             </div>
           );
         }
@@ -218,14 +220,16 @@ export const Connect4Match: FC<{
         <div>
           <h2 class="text-4xl">Game Over</h2>
           {current_turn.status.result.kind === "winner" &&
-              current_turn.status.result.players[0] === 0
-            ? <span class="text-2xl">Blue wins!</span>
-            : current_turn.status.result.kind === "winner" &&
-                current_turn.status.result.players[0] === 1
-            ? <span class="text-2xl">Red wins!</span>
-            : current_turn.status.result.kind === "draw"
-            ? <span class="text-2xl">It's a draw!</span>
-            : <span class="text-2xl">Error</span>}
+          current_turn.status.result.players[0] === 0 ? (
+            <span class="text-2xl">Blue wins!</span>
+          ) : current_turn.status.result.kind === "winner" &&
+            current_turn.status.result.players[0] === 1 ? (
+            <span class="text-2xl">Red wins!</span>
+          ) : current_turn.status.result.kind === "draw" ? (
+            <span class="text-2xl">It's a draw!</span>
+          ) : (
+            <span class="text-2xl">Error</span>
+          )}
         </div>
       );
       break;
@@ -262,8 +266,7 @@ export const Connect4Match: FC<{
           <svg x="0" y="0">
             {[...Array(7)].map((_, col) => {
               const cx = col * 100 + 50;
-              const create_turn_url =
-                `/g/connect4/m/${connect4_match.match_id}/turns/create`;
+              const create_turn_url = `/g/connect4/m/${connect4_match.match_id}/turns/create`;
               const hx_vals = JSON.stringify({
                 game: "connect4",
                 column: col,
@@ -301,7 +304,7 @@ export const Connect4Match: FC<{
                         cy={cy}
                         r="45"
                         class="text-blue-400 fill-current"
-                      />,
+                      />
                     );
                   } else {
                     row_elems.push(
@@ -310,7 +313,7 @@ export const Connect4Match: FC<{
                         cy={cy}
                         r="45"
                         class="text-red-400 fill-current"
-                      />,
+                      />
                     );
                   }
                 }

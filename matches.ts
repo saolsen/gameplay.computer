@@ -1,7 +1,7 @@
-import { z } from "npm:zod@3.22.4";
-import { uuidv7obj } from "npm:uuidv7@0.6.3";
-import { Uuid25 } from "npm:uuid25@0.1.4";
-import { and, eq, sql } from "npm:drizzle-orm@0.30.7";
+import { z } from "zod";
+import { uuidv7obj } from "uuidv7";
+import { Uuid25 } from "uuid25";
+import { and, eq } from "drizzle-orm";
 
 import {
   GamePlayDB,
@@ -13,15 +13,11 @@ import {
   Todo,
   Unreachable,
   UserId,
-} from "./gameplay_schema.ts";
-import { GameError, GameKind, Player, Status } from "./gameplay_game.ts";
-import { fetchUserByUsername } from "./gameplay_users.ts";
+} from "./schema.ts";
+import { GameError, GameKind, Player, Status } from "./game.ts";
+import { fetchUserByUsername } from "./users.ts";
 
-import {
-  Connect4,
-  Connect4Action,
-  Connect4State,
-} from "./gameplay_connect4.ts";
+import { Connect4, Connect4Action, Connect4State } from "./connect4.ts";
 
 export function matchId(): MatchId {
   return `m_${Uuid25.fromBytes(uuidv7obj().bytes).value}` as MatchId;
@@ -65,7 +61,7 @@ export type MatchView = z.infer<typeof MatchView>;
 
 export async function fetchMatchById(
   db: GamePlayDB,
-  match_id: MatchId,
+  match_id: MatchId
 ): Promise<MatchView | NotFound> {
   const results = await db.batch([
     db
@@ -89,11 +85,11 @@ export async function fetchMatchById(
       .where(eq(schema.match_players.match_id, match_id))
       .leftJoin(
         schema.users,
-        eq(schema.match_players.user_id, schema.users.user_id),
+        eq(schema.match_players.user_id, schema.users.user_id)
       )
       .leftJoin(
         schema.agents,
-        eq(schema.match_players.agent_id, schema.agents.agent_id),
+        eq(schema.match_players.agent_id, schema.agents.agent_id)
       ),
     db
       .select({
@@ -108,13 +104,13 @@ export async function fetchMatchById(
       .from(schema.match_turns)
       .innerJoin(
         schema.matches,
-        eq(schema.match_turns.match_id, schema.matches.match_id),
+        eq(schema.match_turns.match_id, schema.matches.match_id)
       )
       .where(
         and(
           eq(schema.match_turns.match_id, match_id),
-          eq(schema.matches.turn_number, schema.match_turns.turn_number),
-        ),
+          eq(schema.matches.turn_number, schema.match_turns.turn_number)
+        )
       ),
   ]);
 
@@ -186,7 +182,7 @@ export type UserMatch = z.infer<typeof UserMatch>;
 export async function findMatchesForGameAndUser(
   db: GamePlayDB,
   game: GameKind,
-  user_id: UserId,
+  user_id: UserId
 ): Promise<UserMatch[]> {
   const result = await db
     .select({
@@ -199,18 +195,18 @@ export async function findMatchesForGameAndUser(
       schema.match_turns,
       and(
         eq(schema.matches.match_id, schema.match_turns.match_id),
-        eq(schema.matches.turn_number, schema.match_turns.turn_number),
-      ),
+        eq(schema.matches.turn_number, schema.match_turns.turn_number)
+      )
     )
     .innerJoin(
       schema.match_players,
-      eq(schema.matches.match_id, schema.match_players.match_id),
+      eq(schema.matches.match_id, schema.match_players.match_id)
     )
     .where(
       and(
         eq(schema.matches.game, game),
-        eq(schema.match_players.user_id, user_id),
-      ),
+        eq(schema.match_players.user_id, user_id)
+      )
     );
 
   const matches = new Map();
@@ -223,7 +219,8 @@ export async function findMatchesForGameAndUser(
       });
     }
     const match = matches.get(row.match_id);
-    match.active_player = match.active_player ||
+    match.active_player =
+      match.active_player ||
       (row.status.status === "in_progress" &&
         row.status.active_players.includes(row.player_number));
   }
@@ -235,7 +232,7 @@ export async function createMatch(
   db: GamePlayDB,
   created_by: SelectUser,
   players: Player[],
-  game: GameKind,
+  game: GameKind
 ): Promise<MatchId | NotFound | NotAllowed | GameError> {
   const player_ids: UserId[] = [];
   for (const player of players) {
@@ -317,7 +314,7 @@ export async function takeMatchUserTurn(
   db: GamePlayDB,
   user: SelectUser,
   match_id: MatchId,
-  action: NewAction,
+  action: NewAction
 ): Promise<null | NotFound | NotAllowed | GameError> {
   const match_view = await fetchMatchById(db, match_id);
   if (match_view instanceof NotFound) {
@@ -339,7 +336,7 @@ export async function takeMatchUserTurn(
       user.user_id,
       "match",
       match_id,
-      "User is not the active player.",
+      "User is not the active player."
     );
   }
 
