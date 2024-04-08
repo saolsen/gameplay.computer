@@ -59,18 +59,21 @@ export type UserId = string & { readonly UserId: unique symbol };
 export const UserId = z
   .string()
   .startsWith("u_")
+  .length(27)
   .transform((k) => k as UserId);
 
 export type MatchId = string & { readonly MatchId: unique symbol };
 export const MatchId = z
   .string()
   .startsWith("m_")
+  .length(27)
   .transform((k) => k as MatchId);
 
 export type AgentId = string & { readonly AgentId: unique symbol };
 export const AgentId = z
   .string()
   .startsWith("a_")
+  .length(27)
   .transform((k) => k as AgentId);
 
 export const Action = z.discriminatedUnion("game", [Connect4Action]);
