@@ -10,12 +10,14 @@ export const Slot = z.nullable(z.number().nonnegative().lte(1));
 export type Slot = z.infer<typeof Slot>;
 
 export const Connect4State = z.object({
+  game: z.literal("connect4"),
   next_player: z.number().nonnegative().lte(1),
   board: z.array(z.array(Slot).length(ROWS)).length(COLS),
 });
 export type Connect4State = z.infer<typeof Connect4State>;
 
 export const Connect4Action = z.object({
+  game: z.literal("connect4"),
   column: z.coerce.number().nonnegative().lt(7),
 });
 export type Connect4Action = z.infer<typeof Connect4Action>;
@@ -30,6 +32,7 @@ export function newGame({ players }: Connect4Args): Connect4State | GameError {
   }
 
   return {
+    game: "connect4",
     next_player: 0,
     board: [
       [null, null, null, null, null, null],

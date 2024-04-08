@@ -1,7 +1,7 @@
 import { z } from "npm:zod@3.22.4";
 import { uuidv7obj } from "npm:uuidv7@0.6.3";
 import { Uuid25 } from "npm:uuid25@0.1.4";
-import { and, eq } from "npm:drizzle-orm@0.30.7";
+import { and, eq, sql } from "npm:drizzle-orm@0.30.7";
 
 import {
   GamePlayDB,
@@ -51,7 +51,7 @@ export const Connect4CurrentTurn = z.object({
 export type Connect4CurrentTurn = z.infer<typeof Connect4CurrentTurn>;
 
 export const Connect4MatchView = z.object({
-  match_id: z.string(),
+  match_id: MatchId,
   game: z.literal("connect4"),
   turn_number: z.number(),
   players: z.array(Player),
@@ -68,37 +68,44 @@ export async function fetchMatchById(
   match_id: MatchId,
 ): Promise<MatchView | NotFound> {
   const results = await db.batch([
-    db.select({
-      match_id: schema.matches.match_id,
-      game: schema.matches.game,
-      turn_number: schema.matches.turn_number,
-    }).from(schema.matches).where(
-      eq(schema.matches.match_id, match_id),
-    ),
-    db.select({
-      player_number: schema.match_players.player_number,
-      player_kind: schema.match_players.player_kind,
-      user_id: schema.match_players.user_id,
-      agent_id: schema.match_players.agent_id,
-      username: schema.users.username,
-      // todo: add agent name
-    }).from(schema.match_players).where(
-      eq(schema.match_players.match_id, match_id),
-    ).leftJoin(
-      schema.users,
-      eq(schema.match_players.user_id, schema.users.user_id),
-    ).leftJoin(
-      schema.agents,
-      eq(schema.match_players.agent_id, schema.agents.agent_id),
-    ),
-    db.select({
-      turn_number: schema.match_turns.turn_number,
-      player_number: schema.match_turns.player_number,
-      action: schema.match_turns.action,
-    }).from(schema.match_turns).where(
-      eq(schema.match_turns.match_id, match_id),
-    ),
-    db.select().from(schema.match_turns)
+    db
+      .select({
+        match_id: schema.matches.match_id,
+        game: schema.matches.game,
+        turn_number: schema.matches.turn_number,
+      })
+      .from(schema.matches)
+      .where(eq(schema.matches.match_id, match_id)),
+    db
+      .select({
+        player_number: schema.match_players.player_number,
+        player_kind: schema.match_players.player_kind,
+        user_id: schema.match_players.user_id,
+        agent_id: schema.match_players.agent_id,
+        username: schema.users.username,
+        // todo: add agent name
+      })
+      .from(schema.match_players)
+      .where(eq(schema.match_players.match_id, match_id))
+      .leftJoin(
+        schema.users,
+        eq(schema.match_players.user_id, schema.users.user_id),
+      )
+      .leftJoin(
+        schema.agents,
+        eq(schema.match_players.agent_id, schema.agents.agent_id),
+      ),
+    db
+      .select({
+        turn_number: schema.match_turns.turn_number,
+        player_number: schema.match_turns.player_number,
+        action: schema.match_turns.action,
+      })
+      .from(schema.match_turns)
+      .where(eq(schema.match_turns.match_id, match_id)),
+    db
+      .select()
+      .from(schema.match_turns)
       .innerJoin(
         schema.matches,
         eq(schema.match_turns.match_id, schema.matches.match_id),
@@ -167,6 +174,61 @@ export async function fetchMatchById(
       throw new Unreachable(game);
     }
   }
+}
+
+export const UserMatch = z.object({
+  match_id: MatchId,
+  status: Status,
+  active_player: z.boolean(),
+});
+export type UserMatch = z.infer<typeof UserMatch>;
+
+export async function findMatchesForGameAndUser(
+  db: GamePlayDB,
+  game: GameKind,
+  user_id: UserId,
+): Promise<UserMatch[]> {
+  const result = await db
+    .select({
+      match_id: schema.matches.match_id,
+      player_number: schema.match_players.player_number,
+      status: schema.match_turns.status,
+    })
+    .from(schema.matches)
+    .innerJoin(
+      schema.match_turns,
+      and(
+        eq(schema.matches.match_id, schema.match_turns.match_id),
+        eq(schema.matches.turn_number, schema.match_turns.turn_number),
+      ),
+    )
+    .innerJoin(
+      schema.match_players,
+      eq(schema.matches.match_id, schema.match_players.match_id),
+    )
+    .where(
+      and(
+        eq(schema.matches.game, game),
+        eq(schema.match_players.user_id, user_id),
+      ),
+    );
+
+  const matches = new Map();
+  for (const row of result) {
+    if (!matches.has(row.match_id)) {
+      matches.set(row.match_id, {
+        match_id: row.match_id,
+        status: row.status,
+        active_player: false,
+      });
+    }
+    const match = matches.get(row.match_id);
+    match.active_player = match.active_player ||
+      (row.status.status === "in_progress" &&
+        row.status.active_players.includes(row.player_number));
+  }
+
+  return Array.from(matches.values());
 }
 
 export async function createMatch(
@@ -286,19 +348,11 @@ export async function takeMatchUserTurn(
   let new_status;
   switch (match_view.game) {
     case "connect4": {
-      const action_check = Connect4.checkAction(
-        state,
-        player_i,
-        action.action,
-      );
+      const action_check = Connect4.checkAction(state, player_i, action.action);
       if (action_check instanceof GameError) {
         return action_check;
       }
-      new_status = Connect4.applyAction(
-        state,
-        player_i,
-        action.action,
-      );
+      new_status = Connect4.applyAction(state, player_i, action.action);
       if (new_status instanceof GameError) {
         return new_status;
       }
@@ -311,11 +365,12 @@ export async function takeMatchUserTurn(
 
   // Update the match.
   await db.batch([
-    db.update(schema.matches).set({
-      turn_number: match_view.turn_number + 1,
-    }).where(
-      eq(schema.matches.match_id, match_id),
-    ),
+    db
+      .update(schema.matches)
+      .set({
+        turn_number: match_view.turn_number + 1,
+      })
+      .where(eq(schema.matches.match_id, match_id)),
     db.insert(schema.match_turns).values({
       match_id,
       turn_number: match_view.turn_number + 1,

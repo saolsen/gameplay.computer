@@ -3,10 +3,10 @@ import "node:async_hooks";
 import {
   context,
   propagation,
+  Span,
   SpanStatusCode,
   trace,
   Tracer,
-  Span,
 } from "npm:@opentelemetry/api";
 import { OTLPTraceExporter } from "npm:@opentelemetry/exporter-trace-otlp-http";
 import { B3Propagator } from "npm:@opentelemetry/propagator-b3";
@@ -41,8 +41,8 @@ export function setupTracing(honeycomb_api_key: string): void {
         headers: {
           "x-honeycomb-team": honeycomb_api_key,
         },
-      })
-    )
+      }),
+    ),
   );
 
   provider.register({
@@ -52,55 +52,55 @@ export function setupTracing(honeycomb_api_key: string): void {
 }
 
 export const tracingMiddleware: MiddlewareHandler = async (
-    c,
-    next
-  ): Promise<void | Response> => {
-    let active_context = null;
-    const prop_header = c.req.header("b3");
-    if (prop_header) {
-      active_context = propagation.extract(context.active(), {
-        b3: prop_header,
+  c,
+  next,
+): Promise<void | Response> => {
+  let active_context = null;
+  const prop_header = c.req.header("b3");
+  if (prop_header) {
+    active_context = propagation.extract(context.active(), {
+      b3: prop_header,
+    });
+  }
+  await getTracer().startActiveSpan(
+    `${c.req.method} ${c.req.url}`,
+    {},
+    active_context!,
+    async (span) => {
+      await next();
+      span.setAttributes({
+        "http.method": c.req.method,
+        "http.url": c.req.url,
+        "response.status_code": c.res.status,
       });
-    }
-    await getTracer().startActiveSpan(
-      `${c.req.method} ${c.req.url}`,
-      {},
-      active_context!,
-      async (span) => {
-        await next();
+      const user = c.get("user");
+      if (user) {
         span.setAttributes({
-          "http.method": c.req.method,
-          "http.url": c.req.url,
-          "response.status_code": c.res.status,
+          user_id: user.id,
+          user_username: user.username,
+          user_email_address: user.email_address,
         });
-        const user = c.get("user");
-        if (user) {
-          span.setAttributes({
-            user_id: user.id,
-            user_username: user.username,
-            user_email_address: user.email_address,
-          });
-        }
-        if (c.res.ok && c.res.status >= 200 && c.res.status < 500) {
-          span.setStatus({ code: SpanStatusCode.OK });
-        } else {
-          span.setStatus({
-            code: SpanStatusCode.ERROR,
-            message: c.error?.message ?? "Unknown error",
-          });
-          if (c.error) {
-            span.recordException(c.error);
-          }
-        }
-        span.end();
       }
-    );
-  };
+      if (c.res.ok && c.res.status >= 200 && c.res.status < 500) {
+        span.setStatus({ code: SpanStatusCode.OK });
+      } else {
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: c.error?.message ?? "Unknown error",
+        });
+        if (c.error) {
+          span.recordException(c.error);
+        }
+      }
+      span.end();
+    },
+  );
+};
 
 export function tracedPromise<
   T,
   // deno-lint-ignore no-explicit-any
-  F extends (...args: any[]) => Promise<T>
+  F extends (...args: any[]) => Promise<T>,
 >(name: string, fn: F, ...args: Parameters<F>): Promise<T> {
   return getTracer().startActiveSpan(
     name,
@@ -112,12 +112,12 @@ export function tracedPromise<
       } catch (error) {
         span.setStatus({
           code: SpanStatusCode.ERROR,
-          message: error.message
+          message: error.message,
         });
         throw error;
       } finally {
         span.end();
       }
-    }
+    },
   );
 }

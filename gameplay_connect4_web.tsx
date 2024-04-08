@@ -265,6 +265,7 @@ export const Connect4Match: FC<{
               const create_turn_url =
                 `/g/connect4/m/${connect4_match.match_id}/turns/create`;
               const hx_vals = JSON.stringify({
+                game: "connect4",
                 column: col,
               });
               const color = player_i === 0 ? "text-blue-400" : "text-red-400";

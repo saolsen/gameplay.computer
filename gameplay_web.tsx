@@ -24,6 +24,7 @@ import {
 import {
   createMatch,
   fetchMatchById,
+  findMatchesForGameAndUser,
   MatchView,
   takeMatchUserTurn,
 } from "./gameplay_matches.ts";
@@ -33,11 +34,13 @@ import { tracedPromise } from "./gameplay_tracing.ts";
 
 export function background<
   // deno-lint-ignore no-explicit-any
-  F extends (...args: any[]) => Promise<void>
+  F extends (...args: any[]) => Promise<void>,
 >(task_name: string, fn: F, ...args: Parameters<F>): Promise<void> {
-  return tracedPromise<void, F>(`background: ${task_name}`, fn, ...args).catch((e) => {
-    console.error(`Background task ${task_name} failed:`, e);
-  });
+  return tracedPromise<void, F>(`background: ${task_name}`, fn, ...args).catch(
+    (e) => {
+      console.error(`Background task ${task_name} failed:`, e);
+    },
+  );
 }
 
 export type ContextVars = {
@@ -245,9 +248,10 @@ const BreadCrumbs: FC<{
   );
 };
 
-const Table: FC<{ columns: string[]; rows: JSX.Element[][] }> = (
-  { columns, rows },
-) => {
+const Table: FC<{ columns: string[]; rows: JSX.Element[][] }> = ({
+  columns,
+  rows,
+}) => {
   return (
     <table className="table table-xs">
       <thead>
@@ -343,7 +347,7 @@ app.get("/g", (c: GamePlayContext) => {
   );
 });
 
-app.get("/g/:game", (c: GamePlayContext) => {
+app.get("/g/:game", async (c: GamePlayContext) => {
   const parsed_game = GameKind.safeParse(c.req.param("game"));
   if (!parsed_game.success) {
     return c.notFound();
@@ -354,9 +358,11 @@ app.get("/g/:game", (c: GamePlayContext) => {
     return c.redirect("/");
   }
 
-  const matches = new Map();
-  // todo: list matches for user service function.
-  // todo: list agents for user service function.
+  const matches = await findMatchesForGameAndUser(
+    c.get("db"),
+    game,
+    user.user_id,
+  );
 
   return c.render(
     <div class="flex flex-col h-full">
@@ -378,13 +384,13 @@ app.get("/g/:game", (c: GamePlayContext) => {
             </a>
             <Table
               columns={["Id", "Status", "Your Turn"]}
-              rows={Array.from(matches).map(([match_id, match]) => {
+              rows={matches.map((match) => {
                 return [
-                  <a class="link" href={`/g/${match.game}/m/${match_id}`}>
-                    {match_id}
+                  <a class="link" href={`/g/${game}/m/${match.match_id}`}>
+                    {match.match_id}
                   </a>,
-                  match.status,
-                  match.active.toString(),
+                  <span>{match.status.status}</span>,
+                  <span>{match.active_player.toString()}</span>,
                 ];
               })}
             >
@@ -402,7 +408,7 @@ app.get("/g/:game", (c: GamePlayContext) => {
   );
 });
 
-app.get("/g/:game/m", (c: GamePlayContext) => {
+app.get("/g/:game/m", async (c: GamePlayContext) => {
   const parsed_game = GameKind.safeParse(c.req.param("game"));
   if (!parsed_game.success) {
     return c.notFound();
@@ -413,8 +419,11 @@ app.get("/g/:game/m", (c: GamePlayContext) => {
     return c.redirect("/");
   }
 
-  const matches = new Map();
-  // todo: list matches for user service function.
+  const matches = await findMatchesForGameAndUser(
+    c.get("db"),
+    game,
+    user.user_id,
+  );
 
   let form;
   switch (game) {
@@ -452,13 +461,13 @@ app.get("/g/:game/m", (c: GamePlayContext) => {
           <div class="container" hx-boost="true" hx-target="#main">
             <Table
               columns={["Id", "Status", "Your Turn"]}
-              rows={Array.from(matches).map(([match_id, match]) => {
+              rows={matches.map((match) => {
                 return [
-                  <a class="link" href={`/g/${match.game}/m/${match_id}`}>
-                    {match_id}
+                  <a class="link" href={`/g/${game}/m/${match.match_id}`}>
+                    {match.match_id}
                   </a>,
-                  match.status,
-                  match.active.toString(),
+                  <span>{match.status.status}</span>,
+                  <span>{match.active_player.toString()}</span>,
                 ];
               })}
             >
@@ -580,11 +589,7 @@ const Match: FC<{
   user: SelectUser;
   match_view: MatchView;
   children: Child;
-}> = ({
-  user,
-  match_view,
-  children,
-}): JSX.Element => {
+}> = ({ user, match_view, children }): JSX.Element => {
   const game = match_view.game;
   const match_id = match_view.match_id;
   const current_turn = match_view.current_turn;
@@ -652,11 +657,7 @@ app.get("/g/:game/m/:match_id", async (c: GamePlayContext) => {
   switch (game) {
     case "connect4": {
       inner_view = (
-        <Connect4Match
-          user={user}
-          connect4_match={match_view}
-        >
-        </Connect4Match>
+        <Connect4Match user={user} connect4_match={match_view}></Connect4Match>
       );
       break;
     }
@@ -667,7 +668,9 @@ app.get("/g/:game/m/:match_id", async (c: GamePlayContext) => {
 
   if (c.req.header("hx-target") === "match") {
     return c.render(
-      <Match user={user} match_view={match_view}>{inner_view}</Match>,
+      <Match user={user} match_view={match_view}>
+        {inner_view}
+      </Match>,
     );
   }
 
@@ -681,9 +684,11 @@ app.get("/g/:game/m/:match_id", async (c: GamePlayContext) => {
           { href: `/g/${game}/m/${match_id}`, text: match_id },
         ]}
       >
-      </BreadCrumbs>      
+      </BreadCrumbs>
       <div id="match">
-        <Match user={user} match_view={match_view}>{inner_view}</Match>
+        <Match user={user} match_view={match_view}>
+          {inner_view}
+        </Match>
       </div>
     </div>,
   );
@@ -744,11 +749,7 @@ app.post("/g/:game/m/:match_id/turns/create", async (c: GamePlayContext) => {
   switch (game) {
     case "connect4": {
       inner_view = (
-        <Connect4Match
-          user={user}
-          connect4_match={match_view}
-        >
-        </Connect4Match>
+        <Connect4Match user={user} connect4_match={match_view}></Connect4Match>
       );
       break;
     }
@@ -764,10 +765,12 @@ app.post("/g/:game/m/:match_id/turns/create", async (c: GamePlayContext) => {
   });
 
   return c.render(
-    <Match user={user} match_view={match_view}>{inner_view}</Match>,
+    <Match user={user} match_view={match_view}>
+      {inner_view}
+    </Match>,
   );
 });
 
 export function sleep(milliseconds = 3000) {
-  return new Promise(resolve => setTimeout(resolve, milliseconds));
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }

@@ -86,27 +86,25 @@ export class GameError extends Error {
   }
 }
 
-export type NewGame<
-  A extends GameArgs,
-  S extends Json,
-  E extends GameError,
-> = (create_args: A) => S | E;
+export type NewGame<A extends GameArgs, S extends Json, E extends GameError> = (
+  create_args: A,
+) => S | E;
 
 export type CheckStatus<S, E extends GameError> = (state: S) => Status | E;
 
 // Returns null if the action is allowed, or an error
 // about why it is not allowed.
-export type CheckAction<
-  S extends Json,
-  A extends Json,
-  E extends GameError,
-> = (state: S, player: number, action: A) => null | E;
+export type CheckAction<S extends Json, A extends Json, E extends GameError> = (
+  state: S,
+  player: number,
+  action: A,
+) => null | E;
 
-export type ApplyAction<
-  S extends Json,
-  A extends Json,
-  E extends GameError,
-> = (state: S, player: number, action: A) => Status | E;
+export type ApplyAction<S extends Json, A extends Json, E extends GameError> = (
+  state: S,
+  player: number,
+  action: A,
+) => Status | E;
 
 export type GetView<S extends Json, V extends Json, E extends GameError> = (
   state: S,
