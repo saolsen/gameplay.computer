@@ -14,11 +14,11 @@ export function userId(): UserId {
 
 export const fetchUserByUsername = traced(
   "fetchUserByUsername",
-  _fetchUserByUsername
+  _fetchUserByUsername,
 );
 async function _fetchUserByUsername(
   db: GamePlayDB,
-  username: Name
+  username: Name,
 ): Promise<SelectUser | null> {
   const users = await db
     .select()
@@ -42,7 +42,7 @@ export type ClerkUser = z.infer<typeof ClerkUser>;
 export const syncClerkUser = traced("syncClerkUser", _syncClerkUser);
 export async function _syncClerkUser(
   db: GamePlayDB,
-  clerk_user: ClerkUser
+  clerk_user: ClerkUser,
 ): Promise<SelectUser> {
   const users = await db
     .select()

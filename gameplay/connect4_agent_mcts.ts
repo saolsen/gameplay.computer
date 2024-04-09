@@ -1,9 +1,9 @@
 import {
-  GameError,
   COLS,
-  Connect4State,
-  Connect4Action,
   Connect4,
+  Connect4Action,
+  Connect4State,
+  GameError,
 } from "./connect4.ts";
 import { connect4Agent } from "./gameplay_connect4_agent.tsx";
 
@@ -22,7 +22,7 @@ function rand_action(state: Connect4State): Connect4Action {
 
 function score_action(
   current_state: Connect4State,
-  action: Connect4Action
+  action: Connect4Action,
 ): number {
   const player = current_state.next_player;
 
@@ -44,7 +44,7 @@ function score_action(
       const next_status = Connect4.applyAction(
         sim_state,
         sim_state.next_player,
-        sim_action
+        sim_action,
       );
       if (next_status instanceof GameError) {
         throw next_status;

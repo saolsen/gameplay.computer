@@ -55,7 +55,7 @@ export function set(
   state: Connect4State,
   col: number,
   row: number,
-  slot: Slot
+  slot: Slot,
 ): void {
   state.board[col][row] = slot;
 }
@@ -75,7 +75,7 @@ export function checkStatus(state: Connect4State): Status | GameError {
         get(state, col, row + 0),
         get(state, col, row + 1),
         get(state, col, row + 2),
-        get(state, col, row + 3)
+        get(state, col, row + 3),
       );
       if (check !== null) {
         return {
@@ -92,7 +92,7 @@ export function checkStatus(state: Connect4State): Status | GameError {
         get(state, col + 0, row),
         get(state, col + 1, row),
         get(state, col + 2, row),
-        get(state, col + 3, row)
+        get(state, col + 3, row),
       );
       if (check !== null) {
         return {
@@ -109,7 +109,7 @@ export function checkStatus(state: Connect4State): Status | GameError {
         get(state, col + 0, row + 0),
         get(state, col + 1, row + 1),
         get(state, col + 2, row + 2),
-        get(state, col + 3, row + 3)
+        get(state, col + 3, row + 3),
       );
       if (check !== null) {
         return {
@@ -126,7 +126,7 @@ export function checkStatus(state: Connect4State): Status | GameError {
         get(state, col + 0, row - 0),
         get(state, col + 1, row - 1),
         get(state, col + 2, row - 2),
-        get(state, col + 3, row - 3)
+        get(state, col + 3, row - 3),
       );
       if (check !== null) {
         return {
@@ -156,7 +156,7 @@ export function checkStatus(state: Connect4State): Status | GameError {
 export function checkAction(
   state: Connect4State,
   player: number,
-  action: Connect4Action
+  action: Connect4Action,
 ): null | GameError {
   if (player !== state.next_player) {
     return new GameError("player", "It is not this player's turn.");
@@ -173,7 +173,7 @@ export function checkAction(
 export function applyAction(
   state: Connect4State,
   player: number,
-  action: Connect4Action
+  action: Connect4Action,
 ): Status | GameError {
   const check = checkAction(state, player, action);
   if (check instanceof GameError) {
@@ -191,14 +191,14 @@ export function applyAction(
 
 export function getView(
   state: Connect4State,
-  _player: number
+  _player: number,
 ): Connect4State | GameError {
   return state;
 }
 
 export type Connect4Agent = (state: Connect4State) => Connect4Action;
 export type Connect4AsyncAgent = (
-  state: Connect4State
+  state: Connect4State,
 ) => Promise<Connect4Action>;
 
 export const Connect4: Game<

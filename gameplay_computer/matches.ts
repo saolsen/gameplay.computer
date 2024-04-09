@@ -20,7 +20,7 @@ import {
   Unreachable,
   UserId,
 } from "./schema.ts";
-import { GameError, GameKind, Player, Status, Name } from "../gameplay/game.ts";
+import { GameError, GameKind, Name, Player, Status } from "../gameplay/game.ts";
 import { fetchUserByUsername } from "./users.ts";
 import { trace, traced } from "./tracing.ts";
 
@@ -67,7 +67,7 @@ export type MatchView = z.infer<typeof MatchView>;
 export const fetchMatchById = traced("fetchMatchById", _fetchMatchById);
 async function _fetchMatchById(
   db: GamePlayDB,
-  match_id: MatchId
+  match_id: MatchId,
 ): Promise<MatchView | NotFound> {
   const results = await db.batch([
     db
@@ -91,11 +91,11 @@ async function _fetchMatchById(
       .where(eq(schema.match_players.match_id, match_id))
       .leftJoin(
         schema.users,
-        eq(schema.match_players.user_id, schema.users.user_id)
+        eq(schema.match_players.user_id, schema.users.user_id),
       )
       .leftJoin(
         schema.agents,
-        eq(schema.match_players.agent_id, schema.agents.agent_id)
+        eq(schema.match_players.agent_id, schema.agents.agent_id),
       ),
     db
       .select({
@@ -110,13 +110,13 @@ async function _fetchMatchById(
       .from(schema.match_turns)
       .innerJoin(
         schema.matches,
-        eq(schema.match_turns.match_id, schema.matches.match_id)
+        eq(schema.match_turns.match_id, schema.matches.match_id),
       )
       .where(
         and(
           eq(schema.match_turns.match_id, match_id),
-          eq(schema.matches.turn_number, schema.match_turns.turn_number)
-        )
+          eq(schema.matches.turn_number, schema.match_turns.turn_number),
+        ),
       ),
   ]);
 
@@ -187,12 +187,12 @@ export type UserMatch = z.infer<typeof UserMatch>;
 
 export const findMatchesForGameAndUser = traced(
   "findMatchesForGameAndUser",
-  _findMatchesForGameAndUser
+  _findMatchesForGameAndUser,
 );
 async function _findMatchesForGameAndUser(
   db: GamePlayDB,
   game: GameKind,
-  user_id: UserId
+  user_id: UserId,
 ): Promise<UserMatch[]> {
   const result = await db
     .select({
@@ -205,18 +205,18 @@ async function _findMatchesForGameAndUser(
       schema.match_turns,
       and(
         eq(schema.matches.match_id, schema.match_turns.match_id),
-        eq(schema.matches.turn_number, schema.match_turns.turn_number)
-      )
+        eq(schema.matches.turn_number, schema.match_turns.turn_number),
+      ),
     )
     .innerJoin(
       schema.match_players,
-      eq(schema.matches.match_id, schema.match_players.match_id)
+      eq(schema.matches.match_id, schema.match_players.match_id),
     )
     .where(
       and(
         eq(schema.matches.game, game),
-        eq(schema.match_players.user_id, user_id)
-      )
+        eq(schema.match_players.user_id, user_id),
+      ),
     );
 
   const matches = new Map();
@@ -229,8 +229,7 @@ async function _findMatchesForGameAndUser(
       });
     }
     const match = matches.get(row.match_id);
-    match.active_player =
-      match.active_player ||
+    match.active_player = match.active_player ||
       (row.status.status === "in_progress" &&
         row.status.active_players.includes(row.player_number));
   }
@@ -243,7 +242,7 @@ async function _createMatch(
   db: GamePlayDB,
   created_by: SelectUser,
   players: Player[],
-  game: GameKind
+  game: GameKind,
 ): Promise<MatchId | NotFound | NotAllowed | GameError> {
   const player_ids: UserId[] = [];
   for (const player of players) {
@@ -323,13 +322,13 @@ async function _createMatch(
 
 export const takeMatchUserTurn = traced(
   "takeMatchUserTurn",
-  _takeMatchUserTurn
+  _takeMatchUserTurn,
 );
 export async function _takeMatchUserTurn(
   db: GamePlayDB,
   user: SelectUser,
   match_id: MatchId,
-  action: NewAction
+  action: NewAction,
 ): Promise<null | NotFound | NotAllowed | GameError> {
   const match_view = await fetchMatchById(db, match_id);
   if (match_view instanceof NotFound) {
@@ -351,7 +350,7 @@ export async function _takeMatchUserTurn(
       user.user_id,
       "match",
       match_id,
-      "User is not the active player."
+      "User is not the active player.",
     );
   }
 
@@ -365,7 +364,7 @@ export async function _takeMatchUserTurn(
         Connect4.checkAction,
         state,
         player_i,
-        action.action
+        action.action,
       );
       if (action_check instanceof GameError) {
         return action_check;
@@ -375,7 +374,7 @@ export async function _takeMatchUserTurn(
         Connect4.applyAction,
         state,
         player_i,
-        action.action
+        action.action,
       );
       if (new_status instanceof GameError) {
         return new_status;

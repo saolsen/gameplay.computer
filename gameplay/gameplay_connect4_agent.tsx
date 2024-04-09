@@ -1,7 +1,7 @@
 import {
-  Connect4State,
   Connect4Agent,
   Connect4AsyncAgent,
+  Connect4State,
 } from "./connect4.ts";
 import { Hono } from "npm:hono";
 

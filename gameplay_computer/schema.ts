@@ -12,10 +12,10 @@ import { sql } from "drizzle-orm";
 
 import {
   GameKind,
+  Name,
   PlayerKind,
   Status,
   StatusKind,
-  Name,
 } from "../gameplay/game.ts";
 
 import { Connect4Action, Connect4State } from "../gameplay/connect4.ts";
@@ -53,7 +53,7 @@ export class NotAllowed extends Error {
     user_id: UserId,
     object_type: string,
     object_id: string | null,
-    reason?: string
+    reason?: string,
   ) {
     super("Unauthorized");
     this.user_id = user_id;
@@ -128,7 +128,7 @@ export const AgentSlug = z
       }
       return true;
     },
-    { message: "Must be `username/agentname`" }
+    { message: "Must be `username/agentname`" },
   )
   .transform((n) => n as AgentSlug);
 
@@ -178,10 +178,10 @@ export const agents = sqliteTable(
       agentnameIdx: uniqueIndex("agentname_idx").on(
         table.user_id,
         table.game,
-        table.agentname
+        table.agentname,
       ),
     };
-  }
+  },
 );
 
 export type InsertAgent = typeof agents.$inferInsert;
@@ -208,7 +208,7 @@ export const matches = sqliteTable(
       // if they are not a player.
       createdByIdx: index("created_by_idx").on(table.created_by),
     };
-  }
+  },
 );
 
 export type InsertMatch = typeof matches.$inferInsert;
@@ -236,7 +236,7 @@ export const match_players = sqliteTable(
       userIdx: index("user_idx").on(table.user_id),
       agentIdx: index("agent_idx").on(table.agent_id),
     };
-  }
+  },
 );
 
 export type InsertMatchPlayer = typeof match_players.$inferInsert;
@@ -264,7 +264,7 @@ export const match_turns = sqliteTable(
       pk: primaryKey({ columns: [table.match_id, table.turn_number] }),
       statusKindIdx: index("status_kind_idx").on(table.status_kind),
     };
-  }
+  },
 );
 
 export type InsertMatchTurn = typeof match_turns.$inferInsert;

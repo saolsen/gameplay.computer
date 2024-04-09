@@ -42,8 +42,8 @@ export function setupTracing(honeycomb_api_key: string): void {
         headers: {
           "x-honeycomb-team": honeycomb_api_key,
         },
-      })
-    )
+      }),
+    ),
   );
 
   provider.register({
@@ -54,7 +54,7 @@ export function setupTracing(honeycomb_api_key: string): void {
 
 export const tracingMiddleware: MiddlewareHandler = async (
   c,
-  next
+  next,
 ): Promise<void | Response> => {
   let active_context = null;
   const prop_header = c.req.header("b3");
@@ -94,13 +94,13 @@ export const tracingMiddleware: MiddlewareHandler = async (
         }
       }
       span.end();
-    }
+    },
   );
 };
 
 export function traced<
   // deno-lint-ignore no-explicit-any
-  F extends (...args: any[]) => any
+  F extends (...args: any[]) => any,
 >(name: string, f: F) {
   return async function (
     ...args: Parameters<F>
@@ -111,7 +111,7 @@ export function traced<
 
 export function traceAsync<
   // deno-lint-ignore no-explicit-any
-  F extends (...args: any[]) => any
+  F extends (...args: any[]) => any,
 >(
   name: string,
   fn: F,
@@ -137,7 +137,7 @@ export function traceAsync<
 
 export function trace<
   // deno-lint-ignore no-explicit-any
-  F extends (...args: any[]) => any
+  F extends (...args: any[]) => any,
 >(name: string, fn: F, ...args: Parameters<F>): ReturnType<F> {
   return getTracer().startActiveSpan(name, (span: Span) => {
     try {
@@ -191,7 +191,7 @@ function tracedExecute(client: Client) {
 function tracedBatch(client: Client) {
   return async function batch(
     statements: InStatement[],
-    mode?: TransactionMode
+    mode?: TransactionMode,
   ): Promise<ResultSet[]> {
     return await getTracer().startActiveSpan(`sqlite:batch`, async (span) => {
       for (const statement of statements) {

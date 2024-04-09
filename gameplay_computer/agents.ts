@@ -19,7 +19,7 @@ import {
   Url,
   UserId,
 } from "./schema.ts";
-import { GameError, GameKind, Player, Status, Name } from "../gameplay/game.ts";
+import { GameError, GameKind, Name, Player, Status } from "../gameplay/game.ts";
 import { fetchUserByUsername } from "./users.ts";
 import { traced } from "./tracing.ts";
 
@@ -36,19 +36,19 @@ export const NewAgent = z.object({
 export const fetchAgentById = traced("fetchAgentById", _fetchAgentById);
 async function _fetchAgentById(
   db: GamePlayDB,
-  agent_id: AgentId
+  agent_id: AgentId,
 ): Promise<SelectAgent | NotFound> {
   return new NotFound("agent", agent_id);
 }
 
 export const findAgentsForGame = traced(
   "findAgentsForGame",
-  _findAgentsForGame
+  _findAgentsForGame,
 );
 async function _findAgentsForGame(
   db: GamePlayDB,
   game: GameKind,
-  status: AgentStatusKind = "active"
+  status: AgentStatusKind = "active",
 ): Promise<AgentSlug[]> {
   const agent_slugs: AgentSlug[] = [];
   const results = await db
@@ -56,11 +56,11 @@ async function _findAgentsForGame(
     .from(schema.agents)
     .innerJoin(schema.users, eq(schema.agents.user_id, schema.users.user_id))
     .where(
-      and(eq(schema.agents.game, game), eq(schema.agents.status_kind, status))
+      and(eq(schema.agents.game, game), eq(schema.agents.status_kind, status)),
     );
   for (const result of results) {
     agent_slugs.push(
-      AgentSlug.parse(result.users.username + "/" + result.agents.agentname)
+      AgentSlug.parse(result.users.username + "/" + result.agents.agentname),
     );
   }
   return agent_slugs;
@@ -73,11 +73,11 @@ export type UserAgent = z.infer<typeof UserAgent>;
 
 export const findAgentsForUser = traced(
   "findAgentsForUser",
-  _findAgentsForUser
+  _findAgentsForUser,
 );
 async function _findAgentsForUser(
   db: GamePlayDB,
-  user: SelectUser
+  user: SelectUser,
 ): Promise<UserAgent[]> {
   const results = await db
     .select()
@@ -88,18 +88,21 @@ async function _findAgentsForUser(
 
 export const findAgentsForGameAndUser = traced(
   "findAgentsForGameAndUser",
-  _findAgentsForGameAndUser
+  _findAgentsForGameAndUser,
 );
 async function _findAgentsForGameAndUser(
   db: GamePlayDB,
   game: GameKind,
-  user: SelectUser
+  user: SelectUser,
 ): Promise<UserAgent[]> {
   const results = await db
     .select()
     .from(schema.agents)
     .where(
-      and(eq(schema.agents.user_id, user.user_id), eq(schema.agents.game, game))
+      and(
+        eq(schema.agents.user_id, user.user_id),
+        eq(schema.agents.game, game),
+      ),
     );
   return [];
 }
@@ -110,7 +113,7 @@ async function _createAgent(
   user: SelectUser,
   game: GameKind,
   agentname: Name,
-  url: Url
+  url: Url,
 ): Promise<AgentId> {
   const agent_id = agentId();
   await db.insert(schema.agents).values({
