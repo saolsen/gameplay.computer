@@ -112,6 +112,7 @@ export function tracedPromise<
         code: SpanStatusCode.ERROR,
         message: error.message,
       });
+      span.recordException(error);
       throw error;
     } finally {
       span.end();
