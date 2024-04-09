@@ -5,8 +5,10 @@ import {
   primaryKey,
   sqliteTable,
   text,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import { LibSQLDatabase } from "drizzle-orm/libsql";
+import { sql } from "drizzle-orm";
 
 import { GameKind, PlayerKind, Status, StatusKind } from "./game.ts";
 
@@ -82,6 +84,26 @@ export type Action = z.infer<typeof Action>;
 export const State = z.discriminatedUnion("game", [Connect4State]);
 export type State = z.infer<typeof State>;
 
+export const AgentStatusKind = z.enum(["active", "inactive"]);
+export type AgentStatusKind = z.infer<typeof AgentStatusKind>;
+
+export const AgentActive = z.object({
+  status: z.literal("active"),
+});
+export type AgentActive = z.infer<typeof AgentActive>;
+
+export const AgentInactive = z.object({
+  status: z.literal("inactive"),
+  // todo: Add reason for being inactive.
+});
+export type AgentInactive = z.infer<typeof AgentInactive>;
+
+export const AgentStatus = z.discriminatedUnion("status", [
+  AgentActive,
+  AgentInactive,
+]);
+export type AgentStatus = z.infer<typeof AgentStatus>;
+
 export const users = sqliteTable("users", {
   user_id: text("user_id").$type<UserId>().primaryKey(),
   username: text("username").unique().notNull(),
@@ -89,16 +111,46 @@ export const users = sqliteTable("users", {
   last_name: text("last_name"),
   email_address: text("email_address").notNull(),
   clerk_user_id: text("clerk_user_id").unique().notNull(),
-  created_at: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
+  created_at: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
 });
 
 export type InsertUser = typeof users.$inferInsert;
 export type SelectUser = typeof users.$inferSelect;
 
-export const agents = sqliteTable("agents", {
-  agent_id: text("agent_id").$type<AgentId>().primaryKey(),
-  created_at: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
-});
+export const agents = sqliteTable(
+  "agents",
+  {
+    agent_id: text("agent_id").$type<AgentId>().primaryKey(),
+    game: text("game").$type<GameKind>().notNull(),
+    user_id: text("user_id")
+      .$type<UserId>()
+      .notNull()
+      .references(() => users.user_id),
+    agentname: text("agentname").notNull(),
+    status_kind: text("status_kind").$type<AgentStatusKind>().notNull(),
+    status: text("status", { mode: "json" }).$type<AgentStatus>().notNull(),
+    url: text("url").notNull(),
+    created_at: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => {
+    return {
+      // list agents for a user
+      userIdx: index("user_idx").on(table.user_id),
+      gameIdx: index("game_idx").on(table.game),
+      // get the agents you can play against.
+      gameStatusIdx: index("game_status_idx").on(table.game, table.status_kind),
+      agentnameIdx: uniqueIndex("agentname_idx").on(
+        table.user_id,
+        table.game,
+        table.agentname
+      ),
+    };
+  }
+);
 
 export type InsertAgent = typeof agents.$inferInsert;
 export type SelectAgent = typeof agents.$inferSelect;
@@ -113,11 +165,15 @@ export const matches = sqliteTable(
       .notNull()
       .references(() => users.user_id),
     turn_number: integer("turn_number").notNull(),
-    created_at: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
+    created_at: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => {
     return {
       gameIdx: index("game_idx").on(table.game),
+      // todo: list matches for a user should also show created_by even
+      // if they are not a player.
       createdByIdx: index("created_by_idx").on(table.created_by),
     };
   }
@@ -167,7 +223,9 @@ export const match_turns = sqliteTable(
     player_number: integer("player"),
     action: text("action", { mode: "json" }).$type<Action>(),
     state: text("state", { mode: "json" }).$type<State>().notNull(),
-    created_at: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
+    timestamp: integer("timestamp", { mode: "timestamp" })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => {
     return {

@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "7d770e7c-d36e-4494-baad-5bc42bf7782f",
+  "id": "df958d79-a9a9-48da-9f71-b4526d2b0f19",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "agents": {
@@ -14,6 +14,34 @@
           "notNull": true,
           "autoincrement": false
         },
+        "game": {
+          "name": "game",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "agentname": {
+          "name": "agentname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "endpoint": {
+          "name": "endpoint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -23,8 +51,38 @@
           "default": "'CURRENT_TIMESTAMP'"
         }
       },
-      "indexes": {},
-      "foreignKeys": {},
+      "indexes": {
+        "user_idx": {
+          "name": "user_idx",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        },
+        "agentname_idx": {
+          "name": "agentname_idx",
+          "columns": [
+            "user_id",
+            "agentname"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "agents_user_id_users_user_id_fk": {
+          "name": "agents_user_id_users_user_id_fk",
+          "tableFrom": "agents",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
@@ -129,7 +187,8 @@
           "columns": [
             "match_id",
             "player_number"
-          ]
+          ],
+          "name": "match_players_match_id_player_number_pk"
         }
       },
       "uniqueConstraints": {}
@@ -224,7 +283,8 @@
           "columns": [
             "match_id",
             "turn_number"
-          ]
+          ],
+          "name": "match_turns_match_id_turn_number_pk"
         }
       },
       "uniqueConstraints": {}

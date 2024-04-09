@@ -5,6 +5,7 @@ import {
   primaryKey,
   sqliteTable,
   text,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import { LibSQLDatabase } from "drizzle-orm/libsql";
 
@@ -147,10 +148,30 @@ export const users = sqliteTable("users", {
 export type InsertUser = typeof users.$inferInsert;
 export type SelectUser = typeof users.$inferSelect;
 
-export const agents = sqliteTable("agents", {
-  agent_id: text("agent_id").$type<AgentId>().primaryKey(),
-  created_at: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
-});
+export const agents = sqliteTable(
+  "agents",
+  {
+    agent_id: text("agent_id").$type<AgentId>().primaryKey(),
+    game: text("game").$type<GameKind>().notNull(),
+    user_id: text("user_id")
+      .$type<UserId>()
+      .notNull()
+      .references(() => users.user_id),
+    agentname: text("agentname").notNull(),
+    endpoint: text("endpoint").notNull(),
+
+    created_at: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
+  },
+  (table) => {
+    return {
+      userIdx: index("user_idx").on(table.user_id),
+      agentnameIdx: uniqueIndex("agentname_idx").on(
+        table.user_id,
+        table.agentname
+      ),
+    };
+  }
+);
 
 export type InsertAgent = typeof agents.$inferInsert;
 export type SelectAgent = typeof agents.$inferSelect;

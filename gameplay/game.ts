@@ -57,7 +57,13 @@ export type Winner = z.infer<typeof Winner>;
 export const Draw = z.object({ kind: z.literal("draw") });
 export type Draw = z.infer<typeof Draw>;
 
-export const Result = z.union([Winner, Draw]);
+export const Errored = z.object({
+  kind: z.literal("errored"),
+  reason: z.string(),
+});
+export type Errored = z.infer<typeof Errored>;
+
+export const Result = z.discriminatedUnion("kind", [Winner, Draw, Errored]);
 export type Result = z.infer<typeof Result>;
 
 export const Over = z.object({
@@ -66,7 +72,7 @@ export const Over = z.object({
 });
 export type Over = z.infer<typeof Over>;
 
-export const Status = z.union([InProgress, Over]);
+export const Status = z.discriminatedUnion("status", [InProgress, Over]);
 export type Status = z.infer<typeof Status>;
 
 export const GameArgs = z.object({

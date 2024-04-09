@@ -226,6 +226,10 @@ export const Connect4Match: FC<{
             <span class="text-2xl">Red wins!</span>
           ) : current_turn.status.result.kind === "draw" ? (
             <span class="text-2xl">It's a draw!</span>
+          ) : current_turn.status.result.kind === "errored" ? (
+            <span class="text-2xl">
+              Error: {current_turn.status.result.reason}
+            </span>
           ) : (
             <span class="text-2xl">Error</span>
           )}
