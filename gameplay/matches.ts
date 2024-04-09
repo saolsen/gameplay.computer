@@ -20,7 +20,7 @@ import {
   Unreachable,
   UserId,
 } from "./schema.ts";
-import { GameError, GameKind, Player, Status } from "./game.ts";
+import { GameError, GameKind, Player, Status, Name } from "./game.ts";
 import { fetchUserByUsername } from "./users.ts";
 
 export function matchId(): MatchId {
@@ -150,7 +150,7 @@ export async function fetchMatchById(
               return {
                 kind: "agent",
                 username: player.username!,
-                agentname: "todo",
+                agentname: "todo" as Name,
               };
             }
             default: {

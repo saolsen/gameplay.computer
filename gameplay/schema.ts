@@ -10,7 +10,7 @@ import {
 import { LibSQLDatabase } from "drizzle-orm/libsql";
 import { sql } from "drizzle-orm";
 
-import { GameKind, PlayerKind, Status, StatusKind } from "./game.ts";
+import { GameKind, PlayerKind, Status, StatusKind, Name } from "./game.ts";
 
 import { Connect4Action, Connect4State } from "./connect4/connect4.ts";
 
@@ -22,7 +22,7 @@ export class Unreachable extends Error {
 
 export class Todo extends Error {
   constructor(message?: string) {
-    super(message || "Not Implemented");
+    super("Todo: " + message || "Not Implemented");
   }
 }
 
@@ -104,9 +104,37 @@ export const AgentStatus = z.discriminatedUnion("status", [
 ]);
 export type AgentStatus = z.infer<typeof AgentStatus>;
 
+export type AgentSlug = string & { readonly AgentSlug: unique symbol };
+export const AgentSlug = z
+  .string()
+  .refine(
+    (s) => {
+      const split = s.split("/");
+      if (split.length !== 2) {
+        return false;
+      }
+      const [username, agentname] = split;
+      if (!Name.safeParse(username).success) {
+        return false;
+      }
+      if (!Name.safeParse(agentname).success) {
+        return false;
+      }
+      return true;
+    },
+    { message: "Must be `username/agentname`" }
+  )
+  .transform((n) => n as AgentSlug);
+
+export type Url = string & { readonly Url: unique symbol };
+export const Url = z
+  .string()
+  .url()
+  .transform((u) => u as Url);
+
 export const users = sqliteTable("users", {
   user_id: text("user_id").$type<UserId>().primaryKey(),
-  username: text("username").unique().notNull(),
+  username: text("username").$type<Name>().unique().notNull(),
   first_name: text("first_name"),
   last_name: text("last_name"),
   email_address: text("email_address").notNull(),
@@ -128,20 +156,18 @@ export const agents = sqliteTable(
       .$type<UserId>()
       .notNull()
       .references(() => users.user_id),
-    agentname: text("agentname").notNull(),
+    agentname: text("agentname").$type<Name>().notNull(),
     status_kind: text("status_kind").$type<AgentStatusKind>().notNull(),
     status: text("status", { mode: "json" }).$type<AgentStatus>().notNull(),
-    url: text("url").notNull(),
+    url: text("url").$type<Url>().notNull(),
     created_at: integer("created_at", { mode: "timestamp" })
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => {
     return {
-      // list agents for a user
       userIdx: index("user_idx").on(table.user_id),
       gameIdx: index("game_idx").on(table.game),
-      // get the agents you can play against.
       gameStatusIdx: index("game_status_idx").on(table.game, table.status_kind),
       agentnameIdx: uniqueIndex("agentname_idx").on(
         table.user_id,

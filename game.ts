@@ -87,7 +87,7 @@ export class GameError extends Error {
 }
 
 export type NewGame<A extends GameArgs, S extends Json, E extends GameError> = (
-  create_args: A
+  create_args: A,
 ) => S | E;
 
 export type CheckStatus<S, E extends GameError> = (state: S) => Status | E;
@@ -97,18 +97,18 @@ export type CheckStatus<S, E extends GameError> = (state: S) => Status | E;
 export type CheckAction<S extends Json, A extends Json, E extends GameError> = (
   state: S,
   player: number,
-  action: A
+  action: A,
 ) => null | E;
 
 export type ApplyAction<S extends Json, A extends Json, E extends GameError> = (
   state: S,
   player: number,
-  action: A
+  action: A,
 ) => Status | E;
 
 export type GetView<S extends Json, V extends Json, E extends GameError> = (
   state: S,
-  player: number
+  player: number,
 ) => V | E;
 
 export type Game<
@@ -116,7 +116,7 @@ export type Game<
   ACTION extends Json,
   STATE extends Json,
   VIEW extends Json,
-  E extends GameError
+  E extends GameError,
 > = {
   kind: GameKind;
   newGame: NewGame<ARGS, STATE, E>;

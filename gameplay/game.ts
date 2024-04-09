@@ -14,6 +14,14 @@ export type CloneLiteral =
   | Date
   | RegExp;
 
+export type Name = string & { readonly Name: unique symbol };
+export const Name = z
+  .string()
+  .regex(/^[a-zA-Z0-9_-]+$/)
+  .min(4)
+  .max(64)
+  .transform((n) => n as Name);
+
 export const GameKind = z.enum(["connect4"]);
 export type GameKind = z.infer<typeof GameKind>;
 
@@ -22,14 +30,14 @@ export type PlayerKind = z.infer<typeof PlayerKind>;
 
 export const UserPlayer = z.object({
   kind: z.literal("user"),
-  username: z.string(),
+  username: Name,
 });
 export type UserPlayer = z.infer<typeof UserPlayer>;
 
 export const AgentPlayer = z.object({
   kind: z.literal("agent"),
-  username: z.string(),
-  agentname: z.string(),
+  username: Name,
+  agentname: Name,
 });
 export type AgentPlayer = z.infer<typeof AgentPlayer>;
 

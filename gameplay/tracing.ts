@@ -41,8 +41,8 @@ export function setupTracing(honeycomb_api_key: string): void {
         headers: {
           "x-honeycomb-team": honeycomb_api_key,
         },
-      })
-    )
+      }),
+    ),
   );
 
   provider.register({
@@ -53,7 +53,7 @@ export function setupTracing(honeycomb_api_key: string): void {
 
 export const tracingMiddleware: MiddlewareHandler = async (
   c,
-  next
+  next,
 ): Promise<void | Response> => {
   let active_context = null;
   const prop_header = c.req.header("b3");
@@ -93,14 +93,14 @@ export const tracingMiddleware: MiddlewareHandler = async (
         }
       }
       span.end();
-    }
+    },
   );
 };
 
 export function tracedPromise<
   T,
   // deno-lint-ignore no-explicit-any
-  F extends (...args: any[]) => Promise<T>
+  F extends (...args: any[]) => Promise<T>,
 >(name: string, fn: F, ...args: Parameters<F>): Promise<T> {
   return getTracer().startActiveSpan(name, async (span: Span) => {
     try {

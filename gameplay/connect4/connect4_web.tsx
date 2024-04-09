@@ -2,15 +2,15 @@
 import { FC } from "hono/jsx";
 import { z } from "zod";
 
-import { Player } from "../game.ts";
+import { Player, Name } from "../game.ts";
 import { Connect4CurrentTurn, Connect4MatchView } from "../matches.ts";
 import { SelectUser, Unreachable } from "../schema.ts";
 
 export const CreateConnect4MatchFormData = z.object({
   game: z.literal("connect4"),
-  "player_type[0]": z.union([z.literal("me"), z.literal("user")]),
+  "player_type[0]": z.union([z.literal("me"), z.literal("agent")]),
   "player_name[0]": z.string(),
-  "player_type[1]": z.union([z.literal("me"), z.literal("user")]),
+  "player_type[1]": z.union([z.literal("me"), z.literal("agent")]),
   "player_name[1]": z.string(),
   "player_error[0]": z.string().optional(),
   "player_error[1]": z.string().optional(),
@@ -20,46 +20,181 @@ export type CreateConnect4MatchFormData = z.infer<
   typeof CreateConnect4MatchFormData
 >;
 
+// Todo: can probably do validation outside of the component now.
 export function validateCreateConnect4MatchForm(
-  _user: SelectUser,
-  data?: CreateConnect4MatchFormData | undefined
+  user: SelectUser,
+  usernames: string[], // usernames
+  agent_slugs: string[], // username/agentname
+  data: CreateConnect4MatchFormData
 ): {
   new_data: CreateConnect4MatchFormData;
+  error: boolean;
   new_match?: {
     players: Player[];
   };
 } {
-  if (!data) {
-    data = {
-      game: "connect4",
-      "player_type[0]": "me",
-      "player_name[0]": "steve",
-      "player_type[1]": "me",
-      "player_name[1]": "steve",
-    };
+  const player_inputs = [
+    {
+      player_type: data["player_type[0]"],
+      player_name: data["player_name[0]"],
+    },
+    {
+      player_type: data["player_type[1]"],
+      player_name: data["player_name[1]"],
+    },
+  ];
+
+  let error = false;
+  const players: Player[] = [];
+  const player_errors: string[] = ["", ""];
+
+  for (let i = 0; i < 2; i++) {
+    const player_type = player_inputs[i].player_type;
+    const player_name = player_inputs[i].player_name;
+    switch (player_type) {
+      case "me": {
+        // name must be the user's name.
+        const parsed_username = Name.safeParse(player_name);
+        if (!parsed_username.success) {
+          error = true;
+          player_errors[i] = "Invalid username.";
+          break;
+        }
+        const username = parsed_username.data;
+        if (username !== user.username) {
+          error = true;
+          player_errors[i] = "Invalid username.";
+          break;
+        }
+
+        players.push({
+          kind: "user",
+          username,
+        });
+        break;
+      }
+      case "agent": {
+        if (!agent_slugs.includes(player_name)) {
+          error = true;
+          player_errors[i] = "Invalid agent name.";
+          break;
+        }
+
+        const split = player_name.split("/");
+        if (split.length !== 2) {
+          error = true;
+          player_errors[i] = "Invalid agent name.";
+          break;
+        }
+
+        const [username_s, agentname_s] = split;
+        const parsed_username = Name.safeParse(username_s);
+        if (!parsed_username.success) {
+          error = true;
+          player_errors[i] = "Invalid agent name.";
+          break;
+        }
+        const username = parsed_username.data;
+
+        const parsed_agentname = Name.safeParse(agentname_s);
+        if (!parsed_agentname.success) {
+          error = true;
+          player_errors[i] = "Invalid agent name.";
+          break;
+        }
+        const agentname = parsed_agentname.data;
+
+        players.push({
+          kind: "agent",
+          username,
+          agentname,
+        });
+        break;
+      }
+      default: {
+        throw new Unreachable(player_type);
+      }
+    }
   }
 
-  const players: Player[] = [];
-  const player_0_kind = data["player_type[0]"];
-  players.push({
-    kind: player_0_kind === "me" ? "user" : player_0_kind,
-    username: data["player_name[0]"],
-  });
-  const player_1_kind = data["player_type[1]"];
-  players.push({
-    kind: player_1_kind === "me" ? "user" : player_1_kind,
-    username: data["player_name[1]"],
-  });
+  data["player_error[0]"] = player_errors[0];
+  data["player_error[1]"] = player_errors[1];
 
-  // todo: validate players, pass in the users and agents.
-  // or make this async so we can go get them.
-
-  return { new_data: data, new_match: { players } };
+  return { new_data: data, error, new_match: { players } };
 }
 
 export const CreateConnect4MatchForm: FC<{
-  create_connect4_match: CreateConnect4MatchFormData;
-}> = ({ create_connect4_match }) => {
+  user: SelectUser;
+  usernames: string[]; // usernames
+  agent_slugs: string[]; // username/agentname
+  create_connect4_match?: CreateConnect4MatchFormData;
+}> = ({ user, usernames, agent_slugs, create_connect4_match }) => {
+  if (!create_connect4_match) {
+    create_connect4_match = {
+      game: "connect4",
+      "player_type[0]": "me",
+      "player_name[0]": user.username,
+      "player_type[1]": "me",
+      "player_name[1]": user.username,
+    };
+  }
+
+  const players = [
+    {
+      type: create_connect4_match["player_type[0]"],
+      name: create_connect4_match["player_name[0]"],
+    },
+    {
+      type: create_connect4_match["player_type[1]"],
+      name: create_connect4_match["player_name[1]"],
+    },
+  ];
+
+  const player_inputs = [];
+
+  for (let i = 0; i < 2; i++) {
+    switch (players[i].type) {
+      case "me": {
+        player_inputs.push(
+          <input
+            type="hidden"
+            name={`player_name[${i}]`}
+            value={user.username}
+          />
+        );
+        break;
+      }
+      case "agent": {
+        if (!agent_slugs.includes(players[i].name)) {
+          players[i].name = "";
+        }
+        player_inputs.push(
+          <label class="label">
+            <span class="label-text">Agent</span>
+            <select
+              class="select select-bordered w-full max-w-xs"
+              name={`player_name[${i}]`}
+              value={players[i].name}
+            >
+              <option disabled selected>
+                Select An Option
+              </option>
+              {agent_slugs.map((agent_slug) => (
+                <option
+                  value={agent_slug}
+                  selected={players[i].name === agent_slug}
+                >
+                  {agent_slug}
+                </option>
+              ))}
+            </select>
+          </label>
+        );
+        break;
+      }
+    }
+  }
+
   return (
     <form
       id="connect4_create_match_form"
@@ -92,16 +227,16 @@ export const CreateConnect4MatchForm: FC<{
                 class="join-item btn"
                 type="radio"
                 name="player_type[0]"
-                value="user"
-                aria-label="User"
-                checked={create_connect4_match["player_type[0]"] === "user"}
+                value="agent"
+                aria-label="Agent"
+                checked={create_connect4_match["player_type[0]"] === "agent"}
                 hx-get="/g/connect4/m/create_match"
                 hx-include="#connect4_create_match_form"
                 hx-target="#connect4_create_match_form"
                 hx-swap="outerHTML"
               />
             </div>
-            <input type="hidden" name="player_name[0]" value="steve" />
+            {player_inputs[0]}
             {create_connect4_match["player_error[0]"] && (
               <div class="alert alert-error" role="alert">
                 <span>{create_connect4_match["player_error[0]"]}</span>
@@ -130,9 +265,9 @@ export const CreateConnect4MatchForm: FC<{
                 class="join-item btn"
                 type="radio"
                 name="player_type[1]"
-                value="user"
-                aria-label="User"
-                checked={create_connect4_match["player_type[1]"] === "user"}
+                value="agent"
+                aria-label="Agent"
+                checked={create_connect4_match["player_type[1]"] === "agent"}
                 hx-get="/g/connect4/m/create_match"
                 hx-include="#connect4_create_match_form"
                 hx-target="#connect4_create_match_form"
@@ -140,7 +275,7 @@ export const CreateConnect4MatchForm: FC<{
               />
             </div>
           </div>
-          <input type="hidden" name="player_name[1]" value="steve" />
+          {player_inputs[1]}
           {create_connect4_match["player_error[1]"] && (
             <div class="alert alert-error" role="alert">
               <span>{create_connect4_match["player_error[1]"]}</span>

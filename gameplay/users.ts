@@ -3,6 +3,7 @@ import { uuidv7obj } from "uuidv7";
 import { Uuid25 } from "uuid25";
 import { eq } from "drizzle-orm";
 
+import { Name } from "./game.ts";
 import { GamePlayDB, schema, SelectUser, UserId } from "./schema.ts";
 
 export function userId(): UserId {
@@ -11,7 +12,7 @@ export function userId(): UserId {
 
 export async function fetchUserByUsername(
   db: GamePlayDB,
-  username: string
+  username: Name
 ): Promise<SelectUser | null> {
   const users = await db
     .select()
@@ -27,7 +28,7 @@ export const ClerkUser = z.object({
   clerk_user_id: z.string(),
   first_name: z.string().nullable(),
   last_name: z.string().nullable(),
-  username: z.string(),
+  username: Name,
   email_address: z.string(),
 });
 export type ClerkUser = z.infer<typeof ClerkUser>;
@@ -47,7 +48,7 @@ export async function syncClerkUser(
     const changed_fields: {
       first_name?: string | null;
       last_name?: string | null;
-      username?: string;
+      username?: Name;
       email_address?: string;
     } = {};
     if (user.first_name !== clerk_user.first_name) {
