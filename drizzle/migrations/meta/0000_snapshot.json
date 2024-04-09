@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "df958d79-a9a9-48da-9f71-b4526d2b0f19",
+  "id": "8dbf2336-2797-451e-8ed1-49fc2b3bd5b4",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "agents": {
@@ -35,8 +35,22 @@
           "notNull": true,
           "autoincrement": false
         },
-        "endpoint": {
-          "name": "endpoint",
+        "status_kind": {
+          "name": "status_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "url": {
+          "name": "url",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -44,11 +58,11 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'CURRENT_TIMESTAMP'"
+          "default": "CURRENT_TIMESTAMP"
         }
       },
       "indexes": {
@@ -59,10 +73,26 @@
           ],
           "isUnique": false
         },
+        "game_idx": {
+          "name": "game_idx",
+          "columns": [
+            "game"
+          ],
+          "isUnique": false
+        },
+        "game_status_idx": {
+          "name": "game_status_idx",
+          "columns": [
+            "game",
+            "status_kind"
+          ],
+          "isUnique": false
+        },
         "agentname_idx": {
           "name": "agentname_idx",
           "columns": [
             "user_id",
+            "game",
             "agentname"
           ],
           "isUnique": true
@@ -245,13 +275,13 @@
           "notNull": true,
           "autoincrement": false
         },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
+        "timestamp": {
+          "name": "timestamp",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'CURRENT_TIMESTAMP'"
+          "default": "CURRENT_TIMESTAMP"
         }
       },
       "indexes": {
@@ -322,11 +352,11 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'CURRENT_TIMESTAMP'"
+          "default": "CURRENT_TIMESTAMP"
         }
       },
       "indexes": {
@@ -410,11 +440,11 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'CURRENT_TIMESTAMP'"
+          "default": "CURRENT_TIMESTAMP"
         }
       },
       "indexes": {
