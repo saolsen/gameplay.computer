@@ -10,9 +10,15 @@ import {
 import { LibSQLDatabase } from "drizzle-orm/libsql";
 import { sql } from "drizzle-orm";
 
-import { GameKind, PlayerKind, Status, StatusKind, Name } from "./game.ts";
+import {
+  GameKind,
+  PlayerKind,
+  Status,
+  StatusKind,
+  Name,
+} from "../gameplay/game.ts";
 
-import { Connect4Action, Connect4State } from "./connect4/connect4.ts";
+import { Connect4Action, Connect4State } from "../gameplay/connect4.ts";
 
 export class Unreachable extends Error {
   constructor(x: never) {

@@ -7,7 +7,7 @@ import { getCookie } from "npm:hono/cookie";
 
 import { importSPKI, jwtVerify } from "jose";
 
-import { Connect4Action } from "./connect4/connect4.ts";
+import { Connect4Action } from "../gameplay/connect4.ts";
 import {
   Connect4Match,
   CreateConnect4MatchForm,
@@ -17,7 +17,7 @@ import {
 
 import { GamePlayDB, MatchId, SelectUser, Unreachable } from "./schema.ts";
 import { ClerkUser, syncClerkUser } from "./users.ts";
-import { GameKind, Name } from "./game.ts";
+import { GameKind, Name } from "../gameplay/game.ts";
 import {
   createMatch,
   fetchMatchById,

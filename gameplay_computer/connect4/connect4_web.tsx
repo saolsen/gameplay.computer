@@ -2,7 +2,7 @@
 import { FC } from "hono/jsx";
 import { z } from "zod";
 
-import { Player, Name } from "../game.ts";
+import { Player, Name } from "../../gameplay/game.ts";
 import { Connect4CurrentTurn, Connect4MatchView } from "../matches.ts";
 import { SelectUser, Unreachable } from "../schema.ts";
 

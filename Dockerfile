@@ -22,4 +22,4 @@ WORKDIR /deno-dir
 COPY . .
 
 ENTRYPOINT ["/bin/deno"]
-CMD ["run", "--allow-env", "--allow-net", "gameplay/main.ts"]
+CMD ["run", "--allow-env", "--allow-net", "gameplay_computer/main.ts"]

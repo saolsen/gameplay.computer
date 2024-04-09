@@ -10,6 +10,7 @@
       "npm:@opentelemetry/resources": "npm:@opentelemetry/resources@1.23.0_@opentelemetry+api@1.8.0",
       "npm:@opentelemetry/sdk-trace-web": "npm:@opentelemetry/sdk-trace-web@1.23.0_@opentelemetry+api@1.8.0",
       "npm:@opentelemetry/semantic-conventions": "npm:@opentelemetry/semantic-conventions@1.23.0",
+      "npm:@types/node": "npm:@types/node@18.16.19",
       "npm:drizzle-kit@0.19.6": "npm:drizzle-kit@0.19.6_esbuild@0.18.20",
       "npm:drizzle-kit@0.20.14": "npm:drizzle-kit@0.20.14_esbuild@0.19.12",
       "npm:drizzle-orm@0.30.7": "npm:drizzle-orm@0.30.7_@libsql+client@0.6.0_@opentelemetry+api@1.8.0",
@@ -18,6 +19,7 @@
       "npm:jose@5.2.3": "npm:jose@5.2.3",
       "npm:uuid25@0.1.4": "npm:uuid25@0.1.4",
       "npm:uuidv7@0.6.3": "npm:uuidv7@0.6.3",
+      "npm:zod": "npm:zod@3.22.4",
       "npm:zod@3.22.4": "npm:zod@3.22.4"
     },
     "npm": {
@@ -899,6 +901,10 @@
         "dependencies": {}
       }
     }
+  },
+  "redirects": {
+    "https://esm.town/v/saolsen/connect4": "https://esm.town/v/saolsen/connect4?v=7",
+    "https://esm.town/v/saolsen/connect4_agent": "https://esm.town/v/saolsen/connect4_agent?v=2"
   },
   "remote": {
     "https://deno.land/std@0.99.0/_util/assert.ts": "2f868145a042a11d5ad0a3c748dcf580add8a0dbc0e876eaa0026303a5488f58",

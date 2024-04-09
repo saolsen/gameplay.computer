@@ -3,7 +3,7 @@ import { uuidv7obj } from "uuidv7";
 import { Uuid25 } from "uuid25";
 import { eq } from "drizzle-orm";
 
-import { Name } from "./game.ts";
+import { Name } from "../gameplay/game.ts";
 import { GamePlayDB, schema, SelectUser, UserId } from "./schema.ts";
 
 import { traced } from "./tracing.ts";

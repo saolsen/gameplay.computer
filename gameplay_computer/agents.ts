@@ -19,7 +19,7 @@ import {
   Url,
   UserId,
 } from "./schema.ts";
-import { GameError, GameKind, Player, Status, Name } from "./game.ts";
+import { GameError, GameKind, Player, Status, Name } from "../gameplay/game.ts";
 import { fetchUserByUsername } from "./users.ts";
 import { traced } from "./tracing.ts";
 

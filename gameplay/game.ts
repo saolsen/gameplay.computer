@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "npm:zod@3.22.4";
 
 export type JsonLiteral = string | number | boolean | null;
 export type Json = JsonLiteral | { [key: string]: Json } | Json[];

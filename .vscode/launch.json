@@ -8,7 +8,7 @@
       "request": "launch",
       "name": "Launch Program",
       "type": "node",
-      "program": "${workspaceFolder}/gameplay/main.ts",
+      "program": "${workspaceFolder}/gameplay_computer/main.ts",
       "cwd": "${workspaceFolder}",
       "runtimeExecutable": "/Users/steve/.deno/bin/deno",
       "runtimeArgs": [

@@ -1,6 +1,7 @@
-import { z } from "zod";
+import { z } from "npm:zod@3.22.4";
 
-import { Game, GameError, Player, Status } from "../game.ts";
+import { type Game, GameError, Player, Status } from "./game.ts";
+export { type Game, GameError, Player, Status } from "./game.ts";
 
 export const COLS = 7;
 export const ROWS = 6;
@@ -194,6 +195,11 @@ export function getView(
 ): Connect4State | GameError {
   return state;
 }
+
+export type Connect4Agent = (state: Connect4State) => Connect4Action;
+export type Connect4AsyncAgent = (
+  state: Connect4State
+) => Promise<Connect4Action>;
 
 export const Connect4: Game<
   Connect4Args,

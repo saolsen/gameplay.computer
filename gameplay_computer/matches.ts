@@ -7,7 +7,7 @@ import {
   Connect4,
   Connect4Action,
   Connect4State,
-} from "./connect4/connect4.ts";
+} from "../gameplay/connect4.ts";
 
 import {
   GamePlayDB,
@@ -20,7 +20,7 @@ import {
   Unreachable,
   UserId,
 } from "./schema.ts";
-import { GameError, GameKind, Player, Status, Name } from "./game.ts";
+import { GameError, GameKind, Player, Status, Name } from "../gameplay/game.ts";
 import { fetchUserByUsername } from "./users.ts";
 import { trace, traced } from "./tracing.ts";
 
