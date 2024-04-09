@@ -5,7 +5,7 @@ import {
   propagation,
   Span,
   SpanStatusCode,
-  trace,
+  trace as otelTrace,
   Tracer,
 } from "npm:@opentelemetry/api";
 import { OTLPTraceExporter } from "npm:@opentelemetry/exporter-trace-otlp-http";
@@ -21,7 +21,7 @@ import { MiddlewareHandler } from "hono";
 import { Client, InStatement, ResultSet, TransactionMode } from "libsql/client";
 
 export function getTracer(): Tracer {
-  return trace.getTracer("gameplay");
+  return otelTrace.getTracer("gameplay");
 }
 
 /**
@@ -98,14 +98,50 @@ export const tracingMiddleware: MiddlewareHandler = async (
   );
 };
 
-export function tracedPromise<
-  T,
+export function traced<
   // deno-lint-ignore no-explicit-any
-  F extends (...args: any[]) => Promise<T>
->(name: string, fn: F, ...args: Parameters<F>): Promise<T> {
+  F extends (...args: any[]) => any
+>(name: string, f: F) {
+  return async function (
+    ...args: Parameters<F>
+  ): Promise<Awaited<ReturnType<F>>> {
+    return await traceAsync(name, f, ...args);
+  };
+}
+
+export function traceAsync<
+  // deno-lint-ignore no-explicit-any
+  F extends (...args: any[]) => any
+>(
+  name: string,
+  fn: F,
+  ...args: Parameters<F>
+): Promise<Awaited<ReturnType<F>>> {
   return getTracer().startActiveSpan(name, async (span: Span) => {
     try {
       const result = await fn(...args);
+      span.setStatus({ code: SpanStatusCode.OK });
+      return result;
+    } catch (error) {
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: error.message,
+      });
+      span.recordException(error);
+      throw error;
+    } finally {
+      span.end();
+    }
+  });
+}
+
+export function trace<
+  // deno-lint-ignore no-explicit-any
+  F extends (...args: any[]) => any
+>(name: string, fn: F, ...args: Parameters<F>): ReturnType<F> {
+  return getTracer().startActiveSpan(name, (span: Span) => {
+    try {
+      const result = fn(...args);
       span.setStatus({ code: SpanStatusCode.OK });
       return result;
     } catch (error) {

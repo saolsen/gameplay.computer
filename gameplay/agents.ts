@@ -4,12 +4,6 @@ import { Uuid25 } from "uuid25";
 import { and, eq } from "drizzle-orm";
 
 import {
-  Connect4,
-  Connect4Action,
-  Connect4State,
-} from "./connect4/connect4.ts";
-
-import {
   AgentId,
   AgentSlug,
   AgentStatusKind,
@@ -27,6 +21,7 @@ import {
 } from "./schema.ts";
 import { GameError, GameKind, Player, Status, Name } from "./game.ts";
 import { fetchUserByUsername } from "./users.ts";
+import { traced } from "./tracing.ts";
 
 export function agentId(): AgentId {
   return `a_${Uuid25.fromBytes(uuidv7obj().bytes).value}` as AgentId;
@@ -38,14 +33,19 @@ export const NewAgent = z.object({
   url: z.string().url(),
 });
 
-export async function fetchAgentById(
+export const fetchAgentById = traced("fetchAgentById", _fetchAgentById);
+async function _fetchAgentById(
   db: GamePlayDB,
   agent_id: AgentId
 ): Promise<SelectAgent | NotFound> {
   return new NotFound("agent", agent_id);
 }
 
-export async function findAgentsForGame(
+export const findAgentsForGame = traced(
+  "findAgentsForGame",
+  _findAgentsForGame
+);
+async function _findAgentsForGame(
   db: GamePlayDB,
   game: GameKind,
   status: AgentStatusKind = "active"
@@ -71,7 +71,11 @@ export const UserAgent = z.object({
 });
 export type UserAgent = z.infer<typeof UserAgent>;
 
-export async function findAgentsForUser(
+export const findAgentsForUser = traced(
+  "findAgentsForUser",
+  _findAgentsForUser
+);
+async function _findAgentsForUser(
   db: GamePlayDB,
   user: SelectUser
 ): Promise<UserAgent[]> {
@@ -82,7 +86,11 @@ export async function findAgentsForUser(
   return [];
 }
 
-export async function findAgentsForGameAndUser(
+export const findAgentsForGameAndUser = traced(
+  "findAgentsForGameAndUser",
+  _findAgentsForGameAndUser
+);
+async function _findAgentsForGameAndUser(
   db: GamePlayDB,
   game: GameKind,
   user: SelectUser
@@ -96,7 +104,8 @@ export async function findAgentsForGameAndUser(
   return [];
 }
 
-export async function createAgent(
+export const createAgent = traced("createAgent", _createAgent);
+async function _createAgent(
   db: GamePlayDB,
   user: SelectUser,
   game: GameKind,

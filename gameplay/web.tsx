@@ -15,15 +15,9 @@ import {
   validateCreateConnect4MatchForm,
 } from "./connect4/connect4_web.tsx";
 
-import {
-  GamePlayDB,
-  MatchId,
-  Name,
-  SelectUser,
-  Unreachable,
-} from "./schema.ts";
+import { GamePlayDB, MatchId, SelectUser, Unreachable } from "./schema.ts";
 import { ClerkUser, syncClerkUser } from "./users.ts";
-import { GameKind } from "./game.ts";
+import { GameKind, Name } from "./game.ts";
 import {
   createMatch,
   fetchMatchById,
@@ -31,17 +25,19 @@ import {
   MatchView,
   takeMatchUserTurn,
 } from "./matches.ts";
-import { tracedPromise } from "./tracing.ts";
+import { traceAsync } from "./tracing.ts";
 
 export function background<
   // deno-lint-ignore no-explicit-any
-  F extends (...args: any[]) => Promise<void>,
+  F extends (...args: any[]) => Promise<void>
 >(task_name: string, fn: F, ...args: Parameters<F>): Promise<void> {
-  return tracedPromise<void, F>(`background: ${task_name}`, fn, ...args).catch(
-    (e) => {
+  return new Promise((resolve, reject) => {
+    resolve(traceAsync(`background: ${task_name}`, fn, ...args));
+  })
+    .catch((e) => {
       console.error(`Background task ${task_name} failed:`, e);
-    },
-  );
+    })
+    .then(() => {});
 }
 
 export type ContextVars = {
@@ -155,15 +151,13 @@ const Page: FC<{ children: Child }> = ({ children }) => {
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1.0"
-        >
-        </meta>
+        ></meta>
         <title>Gameplay</title>
         <link
           href="https://unpkg.com/@tailwindcss/typography@0.5.0/dist/typography.min.css"
           rel="stylesheet"
           type="text/css"
-        >
-        </link>
+        ></link>
         <link
           href="https://cdn.jsdelivr.net/npm/daisyui@4.7.3/dist/full.min.css"
           rel="stylesheet"
@@ -171,8 +165,7 @@ const Page: FC<{ children: Child }> = ({ children }) => {
         />
         <script src="https://cdn.tailwindcss.com"></script>
         <script src="https://unpkg.com/htmx.org@1.9.11"></script>
-        <script src="https://unpkg.com/htmx.org@1.9.11/dist/ext/sse.js">
-        </script>
+        <script src="https://unpkg.com/htmx.org@1.9.11/dist/ext/sse.js"></script>
         <script>
           var server_signed_in = {JSON.stringify(server_signed_in)};
         </script>
@@ -199,17 +192,19 @@ const Page: FC<{ children: Child }> = ({ children }) => {
           async
           crossorigin="anonymous"
           data-clerk-publishable-key={clerk_publishable_key}
-          src={clerk_frontend_api +
-            "/npm/@clerk/clerk-js@4/dist/clerk.browser.js"}
+          src={
+            clerk_frontend_api + "/npm/@clerk/clerk-js@4/dist/clerk.browser.js"
+          }
           type="text/javascript"
           onload="loadClerk()"
-        >
-        </script>
+        ></script>
       </head>
       <body class="h-screen flex flex-col">
-        {server_signed_in
-          ? <LoggedInNav></LoggedInNav>
-          : <LoggedOutNav></LoggedOutNav>}
+        {server_signed_in ? (
+          <LoggedInNav></LoggedInNav>
+        ) : (
+          <LoggedOutNav></LoggedOutNav>
+        )}
         <Main children={children}></Main>
       </body>
     </html>
@@ -257,19 +252,25 @@ const Table: FC<{ columns: string[]; rows: JSX.Element[][] }> = ({
     <table className="table table-xs">
       <thead>
         <tr>
-          {columns.map((column) => <th>{column}</th>)}
+          {columns.map((column) => (
+            <th>{column}</th>
+          ))}
         </tr>
       </thead>
       <tbody>
         {rows.map((row) => (
           <tr>
-            {row.map((cell) => <td>{cell}</td>)}
+            {row.map((cell) => (
+              <td>{cell}</td>
+            ))}
           </tr>
         ))}
       </tbody>
       <tfoot>
         <tr>
-          {columns.map((column) => <th>{column}</th>)}
+          {columns.map((column) => (
+            <th>{column}</th>
+          ))}
         </tr>
       </tfoot>
     </table>
@@ -299,7 +300,7 @@ app.use(
   "*",
   jsxRenderer(({ children }) => <Layout children={children!}></Layout>, {
     docType: false,
-  }),
+  })
 );
 
 app.get("/", (c: GamePlayContext) => {
@@ -318,13 +319,13 @@ app.get("/", (c: GamePlayContext) => {
             Matches
           </a>
         </p>
-      </div>,
+      </div>
     );
   } else {
     return c.render(
       <div>
         <span>Log in to get started.</span>
-      </div>,
+      </div>
     );
   }
 });
@@ -344,7 +345,7 @@ app.get("/g", (c: GamePlayContext) => {
           ))}
         </ul>
       </div>
-    </div>,
+    </div>
   );
 });
 
@@ -362,7 +363,7 @@ app.get("/g/:game", async (c: GamePlayContext) => {
   const matches = await findMatchesForGameAndUser(
     c.get("db"),
     game,
-    user.user_id,
+    user.user_id
   );
 
   return c.render(
@@ -375,8 +376,7 @@ app.get("/g/:game", async (c: GamePlayContext) => {
             text: game.charAt(0).toUpperCase() + game.slice(1),
           },
         ]}
-      >
-      </BreadCrumbs>
+      ></BreadCrumbs>
       <div class="grow">
         <div class="flex">
           <div class="container" hx-boost="true" hx-target="#main">
@@ -394,8 +394,7 @@ app.get("/g/:game", async (c: GamePlayContext) => {
                   <span>{match.active_player.toString()}</span>,
                 ];
               })}
-            >
-            </Table>
+            ></Table>
           </div>
           <div class="container" hx-boost="true" hx-target="#main">
             <a class="link" href={`/g/${game}/a`}>
@@ -405,7 +404,7 @@ app.get("/g/:game", async (c: GamePlayContext) => {
           </div>
         </div>
       </div>
-    </div>,
+    </div>
   );
 });
 
@@ -423,7 +422,7 @@ app.get("/g/:game/m", async (c: GamePlayContext) => {
   const matches = await findMatchesForGameAndUser(
     c.get("db"),
     game,
-    user.user_id,
+    user.user_id
   );
 
   const usernames: Name[] = [];
@@ -437,8 +436,7 @@ app.get("/g/:game/m", async (c: GamePlayContext) => {
           user={user}
           usernames={usernames}
           agent_slugs={agent_slugs}
-        >
-        </CreateConnect4MatchForm>
+        ></CreateConnect4MatchForm>
       );
       break;
     }
@@ -458,8 +456,7 @@ app.get("/g/:game/m", async (c: GamePlayContext) => {
           },
           { href: `/g/${game}/m`, text: "Matches" },
         ]}
-      >
-      </BreadCrumbs>
+      ></BreadCrumbs>
       <div class="grow">
         <div class="flex">
           <div class="container">{form}</div>
@@ -475,12 +472,11 @@ app.get("/g/:game/m", async (c: GamePlayContext) => {
                   <span>{match.active_player.toString()}</span>,
                 ];
               })}
-            >
-            </Table>
+            ></Table>
           </div>
         </div>
       </div>
-    </div>,
+    </div>
   );
 });
 
@@ -514,8 +510,7 @@ app.get("/g/:game/m/create_match", (c: GamePlayContext) => {
           usernames={usernames}
           agent_slugs={agent_slugs}
           create_connect4_match={form}
-        >
-        </CreateConnect4MatchForm>,
+        ></CreateConnect4MatchForm>
       );
     }
     default: {
@@ -551,8 +546,7 @@ app.post("/g/:game/m/create_match", async (c: GamePlayContext) => {
             user={user}
             usernames={usernames}
             agent_slugs={agent_slugs}
-          >
-          </CreateConnect4MatchForm>,
+          ></CreateConnect4MatchForm>
         );
       }
       const form = parsed_form.data;
@@ -569,8 +563,7 @@ app.post("/g/:game/m/create_match", async (c: GamePlayContext) => {
             usernames={usernames}
             agent_slugs={agent_slugs}
             create_connect4_match={new_data}
-          >
-          </CreateConnect4MatchForm>,
+          ></CreateConnect4MatchForm>
         );
       }
 
@@ -579,7 +572,7 @@ app.post("/g/:game/m/create_match", async (c: GamePlayContext) => {
         c.get("db"),
         user,
         players,
-        "connect4",
+        "connect4"
       );
       if (new_match instanceof Error) {
         new_data.form_error = new_match.message;
@@ -590,8 +583,7 @@ app.post("/g/:game/m/create_match", async (c: GamePlayContext) => {
             usernames={usernames}
             agent_slugs={agent_slugs}
             create_connect4_match={new_data}
-          >
-          </CreateConnect4MatchForm>,
+          ></CreateConnect4MatchForm>
         );
       }
 
@@ -612,7 +604,7 @@ app.post("/g/:game/m/create_match", async (c: GamePlayContext) => {
   return c.render(
     <div>
       <span>Created Match, redirecting to {url}</span>
-    </div>,
+    </div>
   );
 });
 
@@ -701,7 +693,7 @@ app.get("/g/:game/m/:match_id", async (c: GamePlayContext) => {
     return c.render(
       <Match user={user} match_view={match_view}>
         {inner_view}
-      </Match>,
+      </Match>
     );
   }
 
@@ -714,14 +706,13 @@ app.get("/g/:game/m/:match_id", async (c: GamePlayContext) => {
           { href: `/g/${game}/m`, text: "Matches" },
           { href: `/g/${game}/m/${match_id}`, text: match_id },
         ]}
-      >
-      </BreadCrumbs>
+      ></BreadCrumbs>
       <div id="match">
         <Match user={user} match_view={match_view}>
           {inner_view}
         </Match>
       </div>
-    </div>,
+    </div>
   );
 });
 
@@ -751,7 +742,7 @@ app.post("/g/:game/m/:match_id/turns/create", async (c: GamePlayContext) => {
       if (!parsed_action.success) {
         return c.json(
           { ok: false, error: parsed_action.error },
-          { status: 400 },
+          { status: 400 }
         );
       }
       const action = parsed_action.data;
@@ -798,7 +789,7 @@ app.post("/g/:game/m/:match_id/turns/create", async (c: GamePlayContext) => {
   return c.render(
     <Match user={user} match_view={match_view}>
       {inner_view}
-    </Match>,
+    </Match>
   );
 });
 
