@@ -18,6 +18,7 @@ import {
 import { SEMRESATTRS_SERVICE_NAME } from "npm:@opentelemetry/semantic-conventions";
 import { AsyncLocalStorageContextManager } from "npm:@opentelemetry/context-async-hooks";
 import { MiddlewareHandler } from "hono";
+import { Client, InStatement, ResultSet, TransactionMode } from "libsql/client";
 
 export function getTracer(): Tracer {
   return trace.getTracer("gameplay");
@@ -41,8 +42,8 @@ export function setupTracing(honeycomb_api_key: string): void {
         headers: {
           "x-honeycomb-team": honeycomb_api_key,
         },
-      }),
-    ),
+      })
+    )
   );
 
   provider.register({
@@ -53,7 +54,7 @@ export function setupTracing(honeycomb_api_key: string): void {
 
 export const tracingMiddleware: MiddlewareHandler = async (
   c,
-  next,
+  next
 ): Promise<void | Response> => {
   let active_context = null;
   const prop_header = c.req.header("b3");
@@ -93,14 +94,14 @@ export const tracingMiddleware: MiddlewareHandler = async (
         }
       }
       span.end();
-    },
+    }
   );
 };
 
 export function tracedPromise<
   T,
   // deno-lint-ignore no-explicit-any
-  F extends (...args: any[]) => Promise<T>,
+  F extends (...args: any[]) => Promise<T>
 >(name: string, fn: F, ...args: Parameters<F>): Promise<T> {
   return getTracer().startActiveSpan(name, async (span: Span) => {
     try {
@@ -118,4 +119,69 @@ export function tracedPromise<
       span.end();
     }
   });
+}
+
+function tracedExecute(client: Client) {
+  return async function execute(statement: InStatement): Promise<ResultSet> {
+    return await getTracer().startActiveSpan(`sqlite:execute`, async (span) => {
+      if (typeof statement === "string") {
+        span.setAttributes({
+          "sqlite.statement": statement,
+          "sqlite.args": [],
+        });
+      } else {
+        span.setAttributes({
+          "sqlite.statement": statement.sql,
+          "sqlite.args": JSON.stringify(statement.args),
+        });
+      }
+      try {
+        const result = await client.execute(statement);
+        span.setStatus({ code: SpanStatusCode.OK });
+        return result;
+      } catch (error) {
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: error.message,
+        });
+        throw new Error(error);
+      } finally {
+        span.end();
+      }
+    });
+  };
+}
+
+function tracedBatch(client: Client) {
+  return async function batch(
+    statements: InStatement[],
+    mode?: TransactionMode
+  ): Promise<ResultSet[]> {
+    return await getTracer().startActiveSpan(`sqlite:batch`, async (span) => {
+      span.setAttributes({
+        "sqlite.statements": JSON.stringify(statements),
+      });
+      try {
+        const result = await client.batch(statements, mode);
+        span.setStatus({ code: SpanStatusCode.OK });
+        return result;
+      } catch (error) {
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: error.message,
+        });
+        throw new Error(error);
+      } finally {
+        span.end();
+      }
+    });
+  };
+}
+
+export function tracedDbClient(client: Client): Client {
+  return {
+    ...client,
+    execute: tracedExecute(client),
+    batch: tracedBatch(client),
+  };
 }

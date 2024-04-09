@@ -5,7 +5,7 @@ import { Hono } from "hono";
 
 import { GamePlayDB, schema } from "./schema.ts";
 import { app, GamePlayContext } from "./web.tsx";
-import { setupTracing, tracingMiddleware } from "./tracing.ts";
+import { setupTracing, tracedDbClient, tracingMiddleware } from "./tracing.ts";
 
 const config = z
   .object({
@@ -20,10 +20,11 @@ const config = z
 
 setupTracing(config.HONEYCOMB_API_KEY);
 
-const client = createClient({
+const base_client = createClient({
   url: config.DB_URL,
   authToken: config.DB_TOKEN,
 });
+const client = tracedDbClient(base_client);
 
 const db: GamePlayDB = drizzle(client, { schema });
 
