@@ -125,14 +125,14 @@ function tracedExecute(client: Client) {
   return async function execute(statement: InStatement): Promise<ResultSet> {
     return await getTracer().startActiveSpan(`sqlite:execute`, async (span) => {
       if (typeof statement === "string") {
-        span.setAttributes({
+        span.addEvent("sqlite.execute", {
           "sqlite.statement": statement,
-          "sqlite.args": [],
         });
       } else {
-        span.setAttributes({
+        const kind = statement.sql.split(" ")[0];
+        span.addEvent("sqlite.execute " + kind, {
           "sqlite.statement": statement.sql,
-          "sqlite.args": JSON.stringify(statement.args),
+          "sqlite.args": JSON.stringify(statement.args, null, 2),
         });
       }
       try {
@@ -158,9 +158,19 @@ function tracedBatch(client: Client) {
     mode?: TransactionMode
   ): Promise<ResultSet[]> {
     return await getTracer().startActiveSpan(`sqlite:batch`, async (span) => {
-      span.setAttributes({
-        "sqlite.statements": JSON.stringify(statements),
-      });
+      for (const statement of statements) {
+        if (typeof statement === "string") {
+          span.addEvent("sqlite.batch", {
+            statement: statement,
+          });
+        } else {
+          const kind = statement.sql.split(" ")[0];
+          span.addEvent("sqlite.batch " + kind, {
+            "sqlite.statement": statement.sql,
+            "sqlite.args": JSON.stringify(statement.args, null, 2),
+          });
+        }
+      }
       try {
         const result = await client.batch(statements, mode);
         span.setStatus({ code: SpanStatusCode.OK });
