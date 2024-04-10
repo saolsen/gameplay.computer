@@ -68,6 +68,9 @@ async function _findAgentsForGame(
 
 export const UserAgent = z.object({
   agent_id: AgentId,
+  agentname: Name,
+  agent_slug: AgentSlug,
+  status_kind: AgentStatusKind,
 });
 export type UserAgent = z.infer<typeof UserAgent>;
 
@@ -96,7 +99,11 @@ async function _findAgentsForGameAndUser(
   user: SelectUser,
 ): Promise<UserAgent[]> {
   const results = await db
-    .select()
+    .select({
+      agent_id: schema.agents.agent_id,
+      agentname: schema.agents.agentname,
+      status_kind: schema.agents.status_kind,
+    })
     .from(schema.agents)
     .where(
       and(
@@ -104,7 +111,14 @@ async function _findAgentsForGameAndUser(
         eq(schema.agents.game, game),
       ),
     );
-  return [];
+  return results.map((result) => {
+    return {
+      agent_id: result.agent_id,
+      agentname: result.agentname,
+      agent_slug: AgentSlug.parse(user.username + "/" + result.agentname),
+      status_kind: result.status_kind,
+    };
+  });
 }
 
 export const createAgent = traced("createAgent", _createAgent);
