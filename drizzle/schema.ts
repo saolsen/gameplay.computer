@@ -10,11 +10,51 @@ import {
 import { LibSQLDatabase } from "drizzle-orm/libsql";
 import { sql } from "drizzle-orm";
 
+/// game.ts
+
+export type JsonLiteral = string | number | boolean | null;
+export type Json = JsonLiteral | { [key: string]: Json } | Json[];
+
+export type CloneLiteral =
+  | undefined
+  | null
+  | boolean
+  | number
+  | string
+  | bigint
+  | Uint8Array
+  | Date
+  | RegExp;
+
+export type Name = string & { readonly Name: unique symbol };
+export const Name = z
+  .string()
+  .regex(/^[a-zA-Z0-9_-]+$/)
+  .min(4)
+  .max(64)
+  .transform((n) => n as Name);
+
 export const GameKind = z.enum(["connect4"]);
 export type GameKind = z.infer<typeof GameKind>;
 
 export const PlayerKind = z.enum(["user", "agent"]);
 export type PlayerKind = z.infer<typeof PlayerKind>;
+
+export const UserPlayer = z.object({
+  kind: z.literal("user"),
+  username: Name,
+});
+export type UserPlayer = z.infer<typeof UserPlayer>;
+
+export const AgentPlayer = z.object({
+  kind: z.literal("agent"),
+  username: Name,
+  agentname: Name,
+});
+export type AgentPlayer = z.infer<typeof AgentPlayer>;
+
+export const Player = z.discriminatedUnion("kind", [UserPlayer, AgentPlayer]);
+export type Player = z.infer<typeof Player>;
 
 export const StatusKind = z.enum(["in_progress", "over"]);
 export type StatusKind = z.infer<typeof StatusKind>;
@@ -37,7 +77,13 @@ export type Winner = z.infer<typeof Winner>;
 export const Draw = z.object({ kind: z.literal("draw") });
 export type Draw = z.infer<typeof Draw>;
 
-export const Result = z.union([Winner, Draw]);
+export const Errored = z.object({
+  kind: z.literal("errored"),
+  reason: z.string(),
+});
+export type Errored = z.infer<typeof Errored>;
+
+export const Result = z.discriminatedUnion("kind", [Winner, Draw, Errored]);
 export type Result = z.infer<typeof Result>;
 
 export const Over = z.object({
@@ -46,8 +92,67 @@ export const Over = z.object({
 });
 export type Over = z.infer<typeof Over>;
 
-export const Status = z.union([InProgress, Over]);
+export const Status = z.discriminatedUnion("status", [InProgress, Over]);
 export type Status = z.infer<typeof Status>;
+
+export const GameArgs = z.object({
+  players: z.array(Player),
+});
+export type GameArgs = z.infer<typeof GameArgs>;
+
+export const GameErrorKind = z.enum(["args", "player", "action", "state"]);
+export type GameErrorKind = z.infer<typeof GameErrorKind>;
+
+export class GameError extends Error {
+  kind: GameErrorKind;
+
+  constructor(kind: GameErrorKind, message: string) {
+    super(message);
+    this.kind = kind;
+  }
+}
+
+export type NewGame<A extends GameArgs, S extends Json, E extends GameError> = (
+  create_args: A,
+) => S | E;
+
+export type CheckStatus<S, E extends GameError> = (state: S) => Status | E;
+
+// Returns null if the action is allowed, or an error
+// about why it is not allowed.
+export type CheckAction<S extends Json, A extends Json, E extends GameError> = (
+  state: S,
+  player: number,
+  action: A,
+) => null | E;
+
+export type ApplyAction<S extends Json, A extends Json, E extends GameError> = (
+  state: S,
+  player: number,
+  action: A,
+) => Status | E;
+
+export type GetView<S extends Json, V extends Json, E extends GameError> = (
+  state: S,
+  player: number,
+) => V | E;
+
+export type Game<
+  ARGS extends GameArgs,
+  ACTION extends Json,
+  STATE extends Json,
+  VIEW extends Json,
+  E extends GameError,
+> = {
+  kind: GameKind;
+  newGame: NewGame<ARGS, STATE, E>;
+  checkStatus: CheckStatus<STATE, E>;
+  checkAction: CheckAction<STATE, ACTION, E>;
+  applyAction: ApplyAction<STATE, ACTION, E>;
+  getView: GetView<STATE, VIEW, E>;
+};
+
+/// connect4.ts
 
 export const COLS = 7;
 export const ROWS = 6;
@@ -69,6 +174,201 @@ export const Connect4Action = z.object({
 });
 export type Connect4Action = z.infer<typeof Connect4Action>;
 
+export type Connect4Args = {
+  players: Player[];
+};
+
+export function newGame({ players }: Connect4Args): Connect4State | GameError {
+  if (players.length !== 2) {
+    return new GameError("args", "Connect4 requires exactly 2 players.");
+  }
+
+  return {
+    game: "connect4",
+    next_player: 0,
+    board: [
+      [null, null, null, null, null, null],
+      [null, null, null, null, null, null],
+      [null, null, null, null, null, null],
+      [null, null, null, null, null, null],
+      [null, null, null, null, null, null],
+      [null, null, null, null, null, null],
+      [null, null, null, null, null, null],
+    ],
+  };
+}
+
+export function get(state: Connect4State, col: number, row: number): Slot {
+  return state.board[col][row];
+}
+
+export function set(
+  state: Connect4State,
+  col: number,
+  row: number,
+  slot: Slot,
+): void {
+  state.board[col][row] = slot;
+}
+
+function check_slots_eq(a: Slot, b: Slot, c: Slot, d: Slot): Slot {
+  if (a === b && b === c && c === d) {
+    return a;
+  }
+  return null;
+}
+
+export function checkStatus(state: Connect4State): Status | GameError {
+  // Check Vertical Win
+  for (let col = 0; col < COLS; col++) {
+    for (let row = 0; row < 3; row++) {
+      const check = check_slots_eq(
+        get(state, col, row + 0),
+        get(state, col, row + 1),
+        get(state, col, row + 2),
+        get(state, col, row + 3),
+      );
+      if (check !== null) {
+        return {
+          status: "over",
+          result: { kind: "winner", players: [check] },
+        };
+      }
+    }
+  }
+  // Check Horizontal Win
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < 4; col++) {
+      const check = check_slots_eq(
+        get(state, col + 0, row),
+        get(state, col + 1, row),
+        get(state, col + 2, row),
+        get(state, col + 3, row),
+      );
+      if (check !== null) {
+        return {
+          status: "over",
+          result: { kind: "winner", players: [check] },
+        };
+      }
+    }
+  }
+  // Check Diagonal Up Win
+  for (let col = 0; col < 4; col++) {
+    for (let row = 0; row < 3; row++) {
+      const check = check_slots_eq(
+        get(state, col + 0, row + 0),
+        get(state, col + 1, row + 1),
+        get(state, col + 2, row + 2),
+        get(state, col + 3, row + 3),
+      );
+      if (check !== null) {
+        return {
+          status: "over",
+          result: { kind: "winner", players: [check] },
+        };
+      }
+    }
+  }
+  // Check Diagonal Down Win
+  for (let col = 0; col < 4; col++) {
+    for (let row = 3; row < 6; row++) {
+      const check = check_slots_eq(
+        get(state, col + 0, row - 0),
+        get(state, col + 1, row - 1),
+        get(state, col + 2, row - 2),
+        get(state, col + 3, row - 3),
+      );
+      if (check !== null) {
+        return {
+          status: "over",
+          result: { kind: "winner", players: [check] },
+        };
+      }
+    }
+  }
+  // Check For Possible Moves
+  for (let col = 0; col < COLS; col++) {
+    if (get(state, col, ROWS - 1) === null) {
+      return {
+        status: "in_progress",
+        active_players: [state.next_player],
+      };
+    }
+  }
+  // No Possible Moves, Draw
+  return {
+    status: "over",
+    result: { kind: "draw" },
+  };
+}
+
+// Returns null if the action is allowed.
+export function checkAction(
+  state: Connect4State,
+  player: number,
+  action: Connect4Action,
+): null | GameError {
+  if (player !== state.next_player) {
+    return new GameError("player", "It is not this player's turn.");
+  }
+  if (action.column < 0 || action.column >= COLS) {
+    return new GameError("action", "Column is out of bounds.");
+  }
+  if (get(state, action.column, ROWS - 1) !== null) {
+    return new GameError("action", "Column is full.");
+  }
+  return null;
+}
+
+export function applyAction(
+  state: Connect4State,
+  player: number,
+  action: Connect4Action,
+): Status | GameError {
+  const check = checkAction(state, player, action);
+  if (check instanceof GameError) {
+    return check;
+  }
+  for (let row = 0; row < ROWS; row++) {
+    if (get(state, action.column, row) === null) {
+      set(state, action.column, row, player);
+      state.next_player = 1 - player;
+      return checkStatus(state);
+    }
+  }
+  throw new Error("unreachable");
+}
+
+export function getView(
+  state: Connect4State,
+  _player: number,
+): Connect4State | GameError {
+  return state;
+}
+
+export type Connect4Agent = (state: Connect4State) => Connect4Action;
+export type Connect4AsyncAgent = (
+  state: Connect4State,
+) => Promise<Connect4Action>;
+
+export const Connect4: Game<
+  Connect4Args,
+  Connect4Action,
+  Connect4State,
+  Connect4State,
+  GameError
+> = {
+  kind: "connect4",
+  newGame,
+  checkStatus,
+  checkAction,
+  applyAction,
+  getView,
+};
+
+/// Schema Module
+
 export class Unreachable extends Error {
   constructor(x: never) {
     super(`Unreachable: ${x}`);
@@ -77,7 +377,7 @@ export class Unreachable extends Error {
 
 export class Todo extends Error {
   constructor(message?: string) {
-    super(message || "Not Implemented");
+    super("Todo: " + message || "Not Implemented");
   }
 }
 
@@ -116,18 +416,21 @@ export type UserId = string & { readonly UserId: unique symbol };
 export const UserId = z
   .string()
   .startsWith("u_")
+  .length(27)
   .transform((k) => k as UserId);
 
 export type MatchId = string & { readonly MatchId: unique symbol };
 export const MatchId = z
   .string()
   .startsWith("m_")
+  .length(27)
   .transform((k) => k as MatchId);
 
 export type AgentId = string & { readonly AgentId: unique symbol };
 export const AgentId = z
   .string()
   .startsWith("a_")
+  .length(27)
   .transform((k) => k as AgentId);
 
 export const Action = z.discriminatedUnion("game", [Connect4Action]);
@@ -156,9 +459,37 @@ export const AgentStatus = z.discriminatedUnion("status", [
 ]);
 export type AgentStatus = z.infer<typeof AgentStatus>;
 
+export type AgentSlug = string & { readonly AgentSlug: unique symbol };
+export const AgentSlug = z
+  .string()
+  .refine(
+    (s) => {
+      const split = s.split("/");
+      if (split.length !== 2) {
+        return false;
+      }
+      const [username, agentname] = split;
+      if (!Name.safeParse(username).success) {
+        return false;
+      }
+      if (!Name.safeParse(agentname).success) {
+        return false;
+      }
+      return true;
+    },
+    { message: "Must be `username/agentname`" },
+  )
+  .transform((n) => n as AgentSlug);
+
+export type Url = string & { readonly Url: unique symbol };
+export const Url = z
+  .string()
+  .url()
+  .transform((u) => u as Url);
+
 export const users = sqliteTable("users", {
   user_id: text("user_id").$type<UserId>().primaryKey(),
-  username: text("username").unique().notNull(),
+  username: text("username").$type<Name>().unique().notNull(),
   first_name: text("first_name"),
   last_name: text("last_name"),
   email_address: text("email_address").notNull(),
@@ -180,21 +511,22 @@ export const agents = sqliteTable(
       .$type<UserId>()
       .notNull()
       .references(() => users.user_id),
-    agentname: text("agentname").notNull(),
+    agentname: text("agentname").$type<Name>().notNull(),
     status_kind: text("status_kind").$type<AgentStatusKind>().notNull(),
     status: text("status", { mode: "json" }).$type<AgentStatus>().notNull(),
-    url: text("url").notNull(),
+    url: text("url").$type<Url>().notNull(),
     created_at: integer("created_at", { mode: "timestamp" })
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => {
     return {
-      // list agents for a user
       userIdx: index("user_idx").on(table.user_id),
       gameIdx: index("game_idx").on(table.game),
-      // get the agents you can play against.
-      gameStatusIdx: index("game_status_idx").on(table.game, table.status_kind),
+      gameStatusIdx: index("game_status_idx").on(
+        table.game,
+        table.status_kind,
+      ),
       agentnameIdx: uniqueIndex("agentname_idx").on(
         table.user_id,
         table.game,
