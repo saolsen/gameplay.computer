@@ -6,7 +6,7 @@
   "configurations": [
     {
       "request": "launch",
-      "name": "Launch Program",
+      "name": "gameplay_computer",
       "type": "node",
       "program": "${workspaceFolder}/main.ts",
       "cwd": "${workspaceFolder}",
@@ -14,9 +14,40 @@
       "runtimeArgs": [
         "run",
         "--inspect-wait",
-        "--allow-all"
       ],
-      "attachSimplePort": 9229
+    },
+    {
+      "request": "launch",
+      "name": "connect4_agent_rand",
+      "type": "node",
+      "program": "${workspaceFolder}/agents/agent.ts",
+      "args": ["connect4_agent_rand", "8001"],
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "/Users/steve/.deno/bin/deno",
+      "runtimeArgs": [
+        "run",
+        "--inspect-wait",
+      ],
+    },
+    {
+      "request": "launch",
+      "name": "connect4_agent_mcts",
+      "type": "node",
+      "program": "${workspaceFolder}/agents/agent.ts",
+      "args": ["connect4_agent_mcts", "8002"],
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "/Users/steve/.deno/bin/deno",
+      "runtimeArgs": [
+        "run",
+        "--inspect-wait",
+      ],
+    }
+  ],
+  "compounds": [
+    {
+      "name": "all",
+      "configurations": ["gameplay_computer", "connect4_agent_rand", "connect4_agent_mcts"],
+      "stopAll": true
     }
   ]
 }
