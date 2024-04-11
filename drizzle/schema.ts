@@ -1,4 +1,9 @@
+// Node version of the schema module (and dependencies).
+// drizzle-kit doesn't work on deno yet so this copy of
+// the schema is used to generate migrations.
+// Be sure to keep this file in sync with the rest of the code.
 import { z } from "zod";
+import { sql } from "drizzle-orm";
 import {
   index,
   integer,
@@ -8,7 +13,6 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import { LibSQLDatabase } from "drizzle-orm/libsql";
-import { sql } from "drizzle-orm";
 
 /// game.ts
 

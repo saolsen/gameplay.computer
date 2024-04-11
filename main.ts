@@ -1,5 +1,5 @@
 import { z } from "npm:zod@3.22.4";
-import { createClient } from "npm:@libsql/client@0.6.0/web";
+import { createClient } from "npm:@libsql/client@0.6.0";
 import { drizzle } from "npm:drizzle-orm@0.30.7/libsql";
 import { Hono } from "npm:hono@4.2.2";
 

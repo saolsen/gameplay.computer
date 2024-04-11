@@ -27,7 +27,7 @@ import {
   InStatement,
   ResultSet,
   TransactionMode,
-} from "npm:@libsql/client@0.6.0/web";
+} from "npm:@libsql/client@0.6.0";
 import { and, eq, sql } from "npm:drizzle-orm@0.30.7";
 import {
   index,
@@ -53,8 +53,12 @@ import {
   PlayerKind,
   Status,
   StatusKind,
-} from "./game.ts";
-import { Connect4, Connect4Action, Connect4State } from "./connect4.ts";
+} from "./gameplay_game.ts";
+import {
+  Connect4,
+  Connect4Action,
+  Connect4State,
+} from "./gameplay_connect4.ts";
 
 declare module "npm:hono@4.2.2" {
   interface ContextRenderer {
