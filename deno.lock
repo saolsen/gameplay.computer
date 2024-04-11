@@ -3,6 +3,7 @@
   "packages": {
     "specifiers": {
       "npm:@libsql/client": "npm:@libsql/client@0.6.0",
+      "npm:@libsql/client@0.6.0": "npm:@libsql/client@0.6.0",
       "npm:@opentelemetry/api": "npm:@opentelemetry/api@1.8.0",
       "npm:@opentelemetry/context-async-hooks": "npm:@opentelemetry/context-async-hooks@1.23.0_@opentelemetry+api@1.8.0",
       "npm:@opentelemetry/exporter-trace-otlp-http": "npm:@opentelemetry/exporter-trace-otlp-http@0.50.0_@opentelemetry+api@1.8.0",
@@ -17,6 +18,8 @@
       "npm:hono": "npm:hono@4.2.2",
       "npm:hono@4.2.2": "npm:hono@4.2.2",
       "npm:jose@5.2.3": "npm:jose@5.2.3",
+      "npm:libsql": "npm:libsql@0.3.10",
+      "npm:libsql@0.3.11": "npm:libsql@0.3.11",
       "npm:uuid25@0.1.4": "npm:uuid25@0.1.4",
       "npm:uuidv7@0.6.3": "npm:uuidv7@0.6.3",
       "npm:zod": "npm:zod@3.22.4",
@@ -246,8 +249,16 @@
         "integrity": "sha512-RaexEFfPAFogd6dJlqkpCkTxdr6K14Z0286lodIJ8Ny77mWuWyBkWKxf70OYWXXAMxMJFUW+6al1F3/Osf/pTg==",
         "dependencies": {}
       },
+      "@libsql/darwin-arm64@0.3.11": {
+        "integrity": "sha512-eTO2UZFxp/kmp31OApCpXJYpZQ1iJ/Qg6fA3sYGHFHBVE9ALTvm+QMHsuMh1LL2HT6CnfS3kDA9dCCE52qVqFQ==",
+        "dependencies": {}
+      },
       "@libsql/darwin-x64@0.3.10": {
         "integrity": "sha512-SNVN6n4qNUdMW1fJMFmx4qn4n5RnXsxjFbczpkzG/V7m/5VeTFt1chhGcrahTHCr3+K6eRJWJUEQHRGqjBwPkw==",
+        "dependencies": {}
+      },
+      "@libsql/darwin-x64@0.3.11": {
+        "integrity": "sha512-N3EeLgqya/JJan6aADcRFJlBGCOHJrcUpUr1cTEepyrEirrJzPv0iwa+jOUfZ3jEamig4KXy7XzEWd+Mbg5Zaw==",
         "dependencies": {}
       },
       "@libsql/hrana-client@0.6.0": {
@@ -274,20 +285,40 @@
         "integrity": "sha512-2uXpi9d8qtyIOr7pyG4a88j6YXgemyIHEs2Wbp+PPletlCIPsFS+E7IQHbz8VwTohchOzcokGUm1Bc5QC+A7wg==",
         "dependencies": {}
       },
+      "@libsql/linux-arm64-gnu@0.3.11": {
+        "integrity": "sha512-bSgUk7iu2L2Nnu4eev5yMisYDMs/lvux2ffqJaWlA4ITRGgYZPcxHZkSm3XavhhL6YOZewW+I1xx6h6ihqRX5w==",
+        "dependencies": {}
+      },
       "@libsql/linux-arm64-musl@0.3.10": {
         "integrity": "sha512-72SN1FUavLvzHddCS861ynSpQndcW5oLGKA3U8CyMfgIZIwJAPc7+48Uj1plW00htXBx4GBpcntFp68KKIx3YQ==",
+        "dependencies": {}
+      },
+      "@libsql/linux-arm64-musl@0.3.11": {
+        "integrity": "sha512-92O6942NPEAys6+GvBG2hJdDXJOCRihuD+/CiWIo2nJLZ9s1RexXEJ7JkxvIO57Oxh8RTDg+7ANriHlMB9MAqw==",
         "dependencies": {}
       },
       "@libsql/linux-x64-gnu@0.3.10": {
         "integrity": "sha512-hXyNqVRi7ONuyWZ1SX6setxL0QaQ7InyS3bHLupsi9s7NpOGD5vcpTaYicJOqmIIm+6kt8vJfmo7ZxlarIHy7Q==",
         "dependencies": {}
       },
+      "@libsql/linux-x64-gnu@0.3.11": {
+        "integrity": "sha512-QvN0I8oNmARhANHTYA/mbMYhcLsNn3YVGbz/T+C2L3EVOgCE8IEU/iNOUK4wl6QExU20ws8lVwQSWAs9kAv5hQ==",
+        "dependencies": {}
+      },
       "@libsql/linux-x64-musl@0.3.10": {
         "integrity": "sha512-kNmIRxomVwt9S+cLyYS497F/3gXFF4r8wW12YSBQgxG75JYft07AHVd8J7HINg+oqRkLzT0s+mVX5dM6nk68EQ==",
         "dependencies": {}
       },
+      "@libsql/linux-x64-musl@0.3.11": {
+        "integrity": "sha512-ObmTqex1w42OEILEkiufbaLxpriDFlmJQXv29ThJ4StnxjQidfEVgMM+8N1SA8dr0zoACdek59KN5NRKMaRfSQ==",
+        "dependencies": {}
+      },
       "@libsql/win32-x64-msvc@0.3.10": {
         "integrity": "sha512-c/6rjdtGULKrJkLgfLobFefObfOtxjXGmCfPxv6pr0epPCeUEssfDbDIeEH9fQUgzogIMWEHwT8so52UJ/iT1Q==",
+        "dependencies": {}
+      },
+      "@libsql/win32-x64-msvc@0.3.11": {
+        "integrity": "sha512-zvKm/FyRjMcfxMcflOu20CRoDJmZGMBB8niI0qzbVJMazZZqUziqXDAnR49/DnEjqonPczdqgegBd5C16T7ZkA==",
         "dependencies": {}
       },
       "@neon-rs/load@0.0.4": {
@@ -755,6 +786,20 @@
           "detect-libc": "detect-libc@2.0.2"
         }
       },
+      "libsql@0.3.11": {
+        "integrity": "sha512-lgXUHvZcy+4foNrjCBB85jBjB4djGRDZLha+lXGxcvMg4oFFUbx2s8k5bzxIIPAhCrRuCarunGc0qvd27Vi7UA==",
+        "dependencies": {
+          "@libsql/darwin-arm64": "@libsql/darwin-arm64@0.3.11",
+          "@libsql/darwin-x64": "@libsql/darwin-x64@0.3.11",
+          "@libsql/linux-arm64-gnu": "@libsql/linux-arm64-gnu@0.3.11",
+          "@libsql/linux-arm64-musl": "@libsql/linux-arm64-musl@0.3.11",
+          "@libsql/linux-x64-gnu": "@libsql/linux-x64-gnu@0.3.11",
+          "@libsql/linux-x64-musl": "@libsql/linux-x64-musl@0.3.11",
+          "@libsql/win32-x64-msvc": "@libsql/win32-x64-msvc@0.3.11",
+          "@neon-rs/load": "@neon-rs/load@0.0.4",
+          "detect-libc": "detect-libc@2.0.2"
+        }
+      },
       "lodash.merge@4.6.2": {
         "integrity": "sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==",
         "dependencies": {}
@@ -904,7 +949,9 @@
   },
   "redirects": {
     "https://esm.town/v/saolsen/connect4": "https://esm.town/v/saolsen/connect4?v=7",
-    "https://esm.town/v/saolsen/connect4_agent": "https://esm.town/v/saolsen/connect4_agent?v=2"
+    "https://esm.town/v/saolsen/connect4_agent": "https://esm.town/v/saolsen/connect4_agent?v=2",
+    "https://esm.town/v/saolsen/gameplay_connect4": "https://esm.town/v/saolsen/gameplay_connect4?v=4",
+    "https://esm.town/v/saolsen/gameplay_game": "https://esm.town/v/saolsen/gameplay_game?v=3"
   },
   "remote": {
     "https://deno.land/std@0.99.0/_util/assert.ts": "2f868145a042a11d5ad0a3c748dcf580add8a0dbc0e876eaa0026303a5488f58",

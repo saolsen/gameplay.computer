@@ -2,7 +2,7 @@ import {
   Connect4Agent,
   Connect4AsyncAgent,
   Connect4State,
-} from "./connect4.ts";
+} from "../connect4.ts";
 import { Hono } from "npm:hono";
 
 export function connect4Agent(agent: Connect4Agent | Connect4AsyncAgent) {

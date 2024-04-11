@@ -12,5 +12,13 @@
     "SEMRESATTRS",
     "uuidv",
     "vals"
-  ]
+  ],
+  "editor.formatOnSave": true,
+  "prettier.enable": false,
+  "[typescript]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  }
 }

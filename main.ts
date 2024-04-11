@@ -1,11 +1,16 @@
-import { z } from "zod";
-import { createClient } from "libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
-import { Hono } from "hono";
+import { z } from "npm:zod@3.22.4";
+import { createClient } from "npm:@libsql/client@0.6.0/web";
+import { drizzle } from "npm:drizzle-orm@0.30.7/libsql";
+import { Hono } from "npm:hono@4.2.2";
 
-import { GamePlayDB, schema } from "./schema.ts";
-import { app, GamePlayContext } from "./web.tsx";
-import { setupTracing, tracedDbClient, tracingMiddleware } from "./tracing.ts";
+import { Schema, Tracing, Web } from "./gameplay_computer.tsx";
+
+import setupTracing = Tracing.setupTracing;
+import tracedDbClient = Tracing.tracedDbClient;
+import tracingMiddleware = Tracing.tracingMiddleware;
+
+import schema = Schema.schema;
+import app = Web.app;
 
 const config = z
   .object({
@@ -26,12 +31,12 @@ const base_client = createClient({
 });
 const client = tracedDbClient(base_client);
 
-const db: GamePlayDB = drizzle(client, { schema });
+const db: Schema.GamePlayDB = drizzle(client, { schema });
 
 export const dev_app = new Hono();
 
 dev_app.use(tracingMiddleware);
-dev_app.use(async (c: GamePlayContext, next) => {
+dev_app.use(async (c: Web.GamePlayContext, next) => {
   c.set("db", db);
   c.set("clerk_publishable_key", config.CLERK_PUBLISHABLE_KEY);
   c.set("clerk_frontend_api", config.CLERK_FRONTEND_API);
