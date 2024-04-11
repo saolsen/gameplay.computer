@@ -1,9 +1,10 @@
+import { Hono } from "npm:hono@4.2.2";
+
 import {
   Connect4Agent,
   Connect4AsyncAgent,
   Connect4State,
-} from "../connect4.ts";
-import { Hono } from "npm:hono";
+} from "./gameplay_connect4.ts";
 
 export function connect4Agent(agent: Connect4Agent | Connect4AsyncAgent) {
   const app = new Hono();

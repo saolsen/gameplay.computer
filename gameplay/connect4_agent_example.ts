@@ -4,8 +4,8 @@ import {
   Connect4Action,
   Connect4State,
   GameError,
-} from "../connect4.ts";
-import { connect4Agent } from "./gameplay_connect4_agent.tsx";
+} from "../gameplay_connect4.ts";
+import { connect4Agent } from "../gameplay_connect4_agent.tsx";
 
 function rand_action(state: Connect4State): Connect4Action {
   const player = state.next_player;

@@ -1,4 +1,8 @@
 .vscode
+drizzle
+gameplay
+.dockerignore
 .envrc
+.gitignore
+Dockerfile
 fly.toml
-drizzle/node_modules
