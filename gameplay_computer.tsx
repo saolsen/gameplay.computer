@@ -23,13 +23,16 @@ import { z } from "npm:zod@3.22.4";
 import { Uuid25 } from "npm:uuid25@0.1.4";
 import { uuidv7obj } from "npm:uuidv7@0.6.3";
 import {
-  Client,
+  Config,
   InStatement,
   ResultSet,
   TransactionMode,
 } from "npm:@libsql/client@0.6.0";
-import { and, eq, sql } from "npm:drizzle-orm@0.30.7";
+import { HttpClient } from "npm:@libsql/client@0.6.0/http";
+import { expandConfig } from "npm:@libsql/core@0.6.0/config";
+import { and, eq, gt, isNull, or, sql } from "npm:drizzle-orm@0.30.7";
 import {
+  alias,
   index,
   integer,
   primaryKey,
@@ -59,6 +62,7 @@ import {
   Connect4Action,
   Connect4State,
 } from "./gameplay_connect4.ts";
+import { encodeBaseUrl } from "npm:@libsql/core@0.6.0/uri";
 
 declare module "npm:hono@4.2.2" {
   interface ContextRenderer {
@@ -138,6 +142,7 @@ export namespace Tracing {
           });
           if (c.error) {
             span.recordException(c.error);
+            console.error(c.error);
           }
         }
         span.end();
@@ -204,42 +209,63 @@ export namespace Tracing {
     });
   }
 
-  function tracedExecute(client: Client) {
-    return async function execute(statement: InStatement): Promise<ResultSet> {
-      return await getTracer().startActiveSpan(
-        `sqlite:execute`,
-        async (span) => {
-          if (typeof statement === "string") {
-            span.addEvent("sqlite.execute", {
-              "sqlite.statement": statement,
-            });
-          } else {
-            const kind = statement.sql.split(" ")[0];
-            span.addEvent("sqlite.execute " + kind, {
-              "sqlite.statement": statement.sql,
-              "sqlite.args": JSON.stringify(statement.args, null, 2),
-            });
-          }
-          try {
-            const result = await client.execute(statement);
-            span.setStatus({ code: SpanStatusCode.OK });
-            return result;
-          } catch (error) {
-            span.setStatus({
-              code: SpanStatusCode.ERROR,
-              message: error.message,
-            });
-            throw new Error(error);
-          } finally {
-            span.end();
-          }
-        },
-      );
-    };
+  export async function tracedFetch(
+    input: string | URL,
+    init?: RequestInit,
+  ): Promise<Response> {
+    return await getTracer().startActiveSpan(`fetch`, async (span) => {
+      const prop_output: { b3: string } = { b3: "" };
+      propagation.inject(context.active(), prop_output);
+      try {
+        console.log("fetching", input);
+        console.log(init);
+        const resp: Response = await fetch(input + "/", {
+          ...init,
+          headers: {
+            b3: prop_output.b3,
+            ...(init?.headers ?? {}),
+          },
+        });
+        console.log(resp);
+        span.setAttributes({
+          "http.url": resp.url,
+          "response.status_code": resp.status,
+        });
+        if (resp.ok && resp.status >= 200 && resp.status < 400) {
+          span.setStatus({ code: SpanStatusCode.OK });
+        } else {
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: await resp.clone().text(),
+          });
+        }
+        return resp;
+      } catch (error) {
+        console.log("what happened????");
+        console.error(error);
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: error.message,
+        });
+        throw new Error(error);
+      } finally {
+        span.end();
+      }
+    });
   }
 
-  function tracedBatch(client: Client) {
-    return async function batch(
+  export class TracedClient extends HttpClient {
+    constructor(config: Config) {
+      const expanded = expandConfig(config, true);
+      const url = encodeBaseUrl(
+        expanded.scheme,
+        expanded.authority,
+        expanded.path,
+      );
+      super(url, expanded.authToken, expanded.intMode, expanded.fetch);
+    }
+
+    async batch(
       statements: InStatement[],
       mode?: TransactionMode,
     ): Promise<ResultSet[]> {
@@ -258,7 +284,7 @@ export namespace Tracing {
           }
         }
         try {
-          const result = await client.batch(statements, mode);
+          const result = await super.batch(statements, mode);
           span.setStatus({ code: SpanStatusCode.OK });
           return result;
         } catch (error) {
@@ -271,15 +297,39 @@ export namespace Tracing {
           span.end();
         }
       });
-    };
-  }
+    }
 
-  export function tracedDbClient(client: Client): Client {
-    return {
-      ...client,
-      execute: tracedExecute(client),
-      batch: tracedBatch(client),
-    };
+    async execute(statement: InStatement): Promise<ResultSet> {
+      return await getTracer().startActiveSpan(
+        `sqlite:execute`,
+        async (span) => {
+          if (typeof statement === "string") {
+            span.addEvent("sqlite.execute", {
+              "sqlite.statement": statement,
+            });
+          } else {
+            const kind = statement.sql.split(" ")[0];
+            span.addEvent("sqlite.execute " + kind, {
+              "sqlite.statement": statement.sql,
+              "sqlite.args": JSON.stringify(statement.args, null, 2),
+            });
+          }
+          try {
+            const result = await super.execute(statement);
+            span.setStatus({ code: SpanStatusCode.OK });
+            return result;
+          } catch (error) {
+            span.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: error.message,
+            });
+            throw new Error(error);
+          } finally {
+            span.end();
+          }
+        },
+      );
+    }
   }
 }
 
@@ -436,13 +486,13 @@ export namespace Schema {
     },
     (table) => {
       return {
-        userIdx: index("user_idx").on(table.user_id),
-        gameIdx: index("game_idx").on(table.game),
-        gameStatusIdx: index("game_status_idx").on(
+        agentUserIdx: index("agent_user_idx").on(table.user_id),
+        agentGameIdx: index("agent_game_idx").on(table.game),
+        agentGameStatusIdx: index("agent_game_status_idx").on(
           table.game,
           table.status_kind,
         ),
-        agentnameIdx: uniqueIndex("agentname_idx").on(
+        agentAgentnameIdx: uniqueIndex("agent_agentname_idx").on(
           table.user_id,
           table.game,
           table.agentname,
@@ -470,11 +520,25 @@ export namespace Schema {
     },
     (table) => {
       return {
-        gameIdx: index("game_idx").on(table.game),
+        matchGameIdx: index("match_game_idx").on(table.game),
         // todo: list matches for a user should also show created_by even
         // if they are not a player.
-        createdByIdx: index("created_by_idx").on(table.created_by),
+        matchCreatedByIdx: index("match_created_by_idx").on(table.created_by),
       };
+    },
+  );
+
+  export const match_locks = sqliteTable(
+    "match_locks",
+    {
+      match_id: text("match_id").$type<MatchId>().primaryKey().references(
+        () => matches.match_id,
+        { onDelete: "cascade" },
+      ),
+      value: text("value").notNull(),
+      timestamp: integer("timestamp", { mode: "timestamp" })
+        .notNull()
+        .default(sql`CURRENT_TIMESTAMP`),
     },
   );
 
@@ -487,7 +551,7 @@ export namespace Schema {
       match_id: text("match_id")
         .$type<MatchId>()
         .notNull()
-        .references(() => matches.match_id),
+        .references(() => matches.match_id, { onDelete: "cascade" }),
       player_number: integer("player_number").notNull(),
       player_kind: text("player_kind").$type<PlayerKind>().notNull(),
       user_id: text("user_id")
@@ -495,13 +559,13 @@ export namespace Schema {
         .references(() => users.user_id),
       agent_id: text("agent_id")
         .$type<AgentId>()
-        .references(() => matches.match_id),
+        .references(() => agents.agent_id),
     },
     (table) => {
       return {
         pk: primaryKey({ columns: [table.match_id, table.player_number] }),
-        userIdx: index("user_idx").on(table.user_id),
-        agentIdx: index("agent_idx").on(table.agent_id),
+        matchPlayerUserIdx: index("match_player_user_idx").on(table.user_id),
+        matchPlayerAgentIdx: index("match_player_agent_idx").on(table.agent_id),
       };
     },
   );
@@ -515,7 +579,7 @@ export namespace Schema {
       match_id: text("match_id")
         .$type<MatchId>()
         .notNull()
-        .references(() => matches.match_id),
+        .references(() => matches.match_id, { onDelete: "cascade" }),
       turn_number: integer("turn_number").notNull(),
       status_kind: text("status_kind").$type<StatusKind>().notNull(),
       status: text("status", { mode: "json" }).$type<Status>().notNull(),
@@ -529,7 +593,9 @@ export namespace Schema {
     (table) => {
       return {
         pk: primaryKey({ columns: [table.match_id, table.turn_number] }),
-        statusKindIdx: index("status_kind_idx").on(table.status_kind),
+        matchTurnStatusKindIdx: index("match_turn_status_kind_idx").on(
+          table.status_kind,
+        ),
       };
     },
   );
@@ -537,7 +603,14 @@ export namespace Schema {
   export type InsertMatchTurn = typeof match_turns.$inferInsert;
   export type SelectMatchTurn = typeof match_turns.$inferSelect;
 
-  export const schema = { users, agents, matches, match_players, match_turns };
+  export const schema = {
+    users,
+    agents,
+    matches,
+    match_players,
+    match_turns,
+    match_locks,
+  };
 
   export type GamePlayDB = LibSQLDatabase<typeof schema>;
 }
@@ -649,11 +722,13 @@ export namespace Agents {
   import NotFound = Schema.NotFound;
 
   import Url = Schema.Url;
+  import UserId = Schema.UserId;
   import SelectUser = Schema.SelectUser;
 
   import AgentId = Schema.AgentId;
   import AgentSlug = Schema.AgentSlug;
   import AgentStatusKind = Schema.AgentStatusKind;
+  import AgentStatus = Schema.AgentStatus;
   import SelectAgent = Schema.SelectAgent;
 
   import GamePlayDB = Schema.GamePlayDB;
@@ -663,11 +738,18 @@ export namespace Agents {
     return `a_${Uuid25.fromBytes(uuidv7obj().bytes).value}` as AgentId;
   }
 
-  export const NewAgent = z.object({
+  export const AgentView = z.object({
+    agent_id: AgentId,
     game: GameKind,
-    agentname: z.string(),
-    url: z.string().url(),
+    agentname: Name,
+    user_id: UserId,
+    username: Name,
+    slug: AgentSlug,
+    status: AgentStatus,
+    url: Url,
+    created_at: z.date(),
   });
+  export type AgentView = z.infer<typeof AgentView>;
 
   export const fetchAgentById = Tracing.traced(
     "fetchAgentById",
@@ -685,6 +767,41 @@ export namespace Agents {
       return new NotFound("agent", agent_id);
     }
     return results[0];
+  }
+
+  export const fetchAgentByUsernameAndAgentname = Tracing.traced(
+    "fetchAgentByUsernameAndAgentname",
+    _fetchAgentByUsernameAndAgentname,
+  );
+  async function _fetchAgentByUsernameAndAgentname(
+    db: GamePlayDB,
+    username: Name,
+    agentname: Name,
+  ): Promise<AgentView | NotFound> {
+    const results = await db
+      .select({
+        agent_id: schema.agents.agent_id,
+        game: schema.agents.game,
+        agentname: schema.agents.agentname,
+        user_id: schema.agents.user_id,
+        username: schema.users.username,
+        status: schema.agents.status,
+        url: schema.agents.url,
+        created_at: schema.agents.created_at,
+      })
+      .from(schema.agents)
+      .innerJoin(schema.users, eq(schema.agents.user_id, schema.users.user_id))
+      .where(and(
+        eq(schema.agents.agentname, agentname),
+        eq(schema.users.username, username),
+      ));
+
+    if (results.length === 0) {
+      return new NotFound("agent", username + "/" + agentname);
+    }
+    const result = results[0];
+
+    return { ...result, slug: AgentSlug.parse(username + "/" + agentname) };
   }
 
   export const findAgentsForGame = Tracing.traced(
@@ -803,6 +920,7 @@ export namespace Matches {
   import AgentId = Schema.AgentId;
 
   import MatchId = Schema.MatchId;
+  import InsertMatchPlayer = Schema.InsertMatchPlayer;
 
   import GamePlayDB = Schema.GamePlayDB;
   import schema = Schema.schema;
@@ -855,6 +973,7 @@ export namespace Matches {
     db: GamePlayDB,
     match_id: MatchId,
   ): Promise<MatchView | NotFound> {
+    const agent_user = alias(schema.users, "agent_user");
     const results = await db.batch([
       db
         .select({
@@ -871,7 +990,8 @@ export namespace Matches {
           user_id: schema.match_players.user_id,
           agent_id: schema.match_players.agent_id,
           username: schema.users.username,
-          // todo: add agent name
+          agentname: schema.agents.agentname,
+          agent_username: agent_user.username,
         })
         .from(schema.match_players)
         .where(eq(schema.match_players.match_id, match_id))
@@ -882,6 +1002,10 @@ export namespace Matches {
         .leftJoin(
           schema.agents,
           eq(schema.match_players.agent_id, schema.agents.agent_id),
+        )
+        .leftJoin(
+          agent_user,
+          eq(schema.agents.user_id, agent_user.user_id),
         ),
       db
         .select({
@@ -937,8 +1061,8 @@ export namespace Matches {
               case "agent": {
                 return {
                   kind: "agent",
-                  username: player.username!,
-                  agentname: "todo" as Name,
+                  username: player.agent_username!,
+                  agentname: player.agentname!,
                 };
               }
               default: {
@@ -1030,7 +1154,11 @@ export namespace Matches {
     players: Player[],
     game: GameKind,
   ): Promise<MatchId | NotFound | NotAllowed | GameError> {
-    const player_ids: UserId[] = [];
+    const player_ids: {
+      player_kind: PlayerKind;
+      user_id: UserId | null;
+      agent_id: AgentId | null;
+    }[] = [];
     for (const player of players) {
       switch (player.kind) {
         case "user": {
@@ -1038,11 +1166,31 @@ export namespace Matches {
           if (user instanceof NotFound) {
             return new NotFound("user", player.username);
           }
-          player_ids.push(user.user_id);
+          player_ids.push({
+            player_kind: player.kind,
+            user_id: user.user_id,
+            agent_id: null,
+          });
           break;
         }
         case "agent": {
-          throw new Todo("agent players");
+          const agent = await Agents.fetchAgentByUsernameAndAgentname(
+            db,
+            player.username,
+            player.agentname,
+          );
+          if (agent instanceof NotFound) {
+            return new NotFound(
+              "agent",
+              player.username + "/" + player.agentname,
+            );
+          }
+          player_ids.push({
+            player_kind: player.kind,
+            user_id: null,
+            agent_id: agent.agent_id,
+          });
+          break;
         }
         default: {
           throw new Unreachable(player);
@@ -1085,11 +1233,12 @@ export namespace Matches {
         turn_number: 0,
       }),
       db.insert(schema.match_players).values([
-        ...players.map((player, i) => ({
+        ...players.map((_player, i) => ({
           match_id,
           player_number: i,
-          player_kind: player.kind,
-          user_id: player_ids[i],
+          player_kind: player_ids[i].player_kind,
+          user_id: player_ids[i].user_id,
+          agent_id: player_ids[i].agent_id,
         })),
       ]),
       db.insert(schema.match_turns).values({
@@ -1115,7 +1264,7 @@ export namespace Matches {
     user: SelectUser,
     match_id: MatchId,
     action: NewAction,
-  ): Promise<null | NotFound | NotAllowed | GameError> {
+  ): Promise<boolean | NotFound | NotAllowed | GameError> {
     const match_view = await fetchMatchById(db, match_id);
     if (match_view instanceof NotFound) {
       return match_view;
@@ -1173,7 +1322,195 @@ export namespace Matches {
     }
 
     // Update the match.
+    try {
+      await db.batch([
+        db
+          .update(schema.matches)
+          .set({
+            turn_number: match_view.turn_number + 1,
+          })
+          .where(eq(schema.matches.match_id, match_id)),
+        db.insert(schema.match_turns).values({
+          match_id,
+          turn_number: match_view.turn_number + 1,
+          status_kind: new_status.status,
+          status: new_status,
+          player_number: player_i,
+          action: action.action,
+          state,
+        }),
+      ]);
+    } catch (e) {
+      console.error(e);
+      // todo: how do you really catch this?
+      if (e.message.includes("SQLITE_CONSTRAINT")) {
+        // Turn was already taken.
+        return false;
+      } else {
+        throw e;
+      }
+    }
+    return true;
+  }
+
+  export const takeMatchAgentTurn = Tracing.traced(
+    "takeMatchAgentTurn",
+    _takeMatchAgentTurn,
+  );
+  export async function _takeMatchAgentTurn(
+    db: GamePlayDB,
+    match_id: MatchId,
+  ): Promise<boolean | NotFound | NotAllowed | GameError> {
+    // TODO: Make it so there can only be one active player, then all this logic gets easier.
+
+    // Lock the match if it's an agent's turn and it's not already locked.
+    const lock_value = Uuid25.fromBytes(uuidv7obj().bytes).value;
+    const lock = await db.transaction(
+      async (tx) => {
+        const [lock_match_id] = await db.select({
+          match_id: schema.matches.match_id,
+        }).from(
+          schema.matches,
+        ).innerJoin(
+          schema.match_turns,
+          and(
+            eq(schema.match_turns.match_id, schema.matches.match_id),
+            eq(schema.match_turns.turn_number, schema.matches.turn_number),
+          ),
+        ).innerJoin(
+          schema.match_players,
+          and(
+            eq(schema.match_players.match_id, schema.matches.match_id),
+            eq(
+              schema.match_players.player_number,
+              sql`${schema.match_turns.status} -> '$.active_players[0]'`,
+            ),
+          ),
+        ).leftJoin(
+          schema.match_locks,
+          eq(schema.match_locks.match_id, schema.matches.match_id),
+        )
+          .where(
+            and(
+              eq(schema.matches.match_id, match_id),
+              eq(schema.match_turns.status_kind, "in_progress"),
+              eq(schema.match_players.player_kind, "agent"),
+              or(
+                isNull(schema.match_locks.match_id),
+                gt(
+                  sql`strftime('%s', 'now') - strftime('%s', ${schema.match_locks.timestamp})`,
+                  60 * 1,
+                ),
+              ),
+            ),
+          );
+        if (lock_match_id) {
+          const result = await db.insert(schema.match_locks).values({
+            match_id,
+            value: lock_value,
+          }).returning({ match_id: schema.match_locks.match_id });
+          return result[0].match_id;
+        }
+        return null;
+      },
+    );
+
+    if (lock === null) {
+      console.log("match is locked");
+      return false;
+    }
+
+    const match_view = await fetchMatchById(db, match_id);
+    if (match_view instanceof NotFound) {
+      return match_view;
+    }
+
+    if (match_view.current_turn.status.status !== "in_progress") {
+      return false;
+    }
+
+    // note: hardcoded to one active player. Fix for multiple players.
+    const player_i = match_view.current_turn.status.active_players[0];
+    const player = match_view.players[player_i];
+    if (player.kind !== "agent") {
+      return false;
+    }
+
+    const agent = await Agents.fetchAgentByUsernameAndAgentname(
+      db,
+      player.username,
+      player.agentname,
+    );
+    if (agent instanceof NotFound) {
+      return new NotFound("agent", player.username + "/" + player.agentname);
+    }
+
+    // todo: check agent status.
+
+    const state = match_view.current_turn.state;
+
+    // todo: retry logic
+    //for (let retry = 0; retry < 3; retry++) {
+
+    // Query the agent for the action.
+    let response;
+    try {
+      const agent_action = await Tracing.tracedFetch(agent.url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(state),
+      });
+      console.log(agent_action);
+      response = await agent_action.json();
+    } catch (e) {
+      console.error(e);
+      // todo: good error handling of all the cases.
+      throw e;
+    }
+
+    let action;
+    let new_status;
+    switch (match_view.game) {
+      case "connect4": {
+        action = Connect4Action.parse(response);
+
+        const action_check = Tracing.trace(
+          "Connect4.checkAction",
+          Connect4.checkAction,
+          state,
+          player_i,
+          action,
+        );
+        if (action_check instanceof GameError) {
+          return action_check;
+        }
+        new_status = Tracing.trace(
+          "Connect4.applyAction",
+          Connect4.applyAction,
+          state,
+          player_i,
+          action,
+        );
+        if (new_status instanceof GameError) {
+          return new_status;
+        }
+        break;
+      }
+      default: {
+        throw new Unreachable(match_view.game);
+      }
+    }
+
+    // Update the match.
     await db.batch([
+      db.delete(schema.match_locks).where(
+        and(
+          eq(schema.match_locks.match_id, match_id),
+          eq(schema.match_locks.value, lock_value),
+        ),
+      ),
       db
         .update(schema.matches)
         .set({
@@ -1186,12 +1523,12 @@ export namespace Matches {
         status_kind: new_status.status,
         status: new_status,
         player_number: player_i,
-        action: action.action,
+        action,
         state,
       }),
     ]);
 
-    return null;
+    return true;
   }
 }
 
@@ -1691,9 +2028,10 @@ export namespace Web {
 
   export function background<
     // deno-lint-ignore no-explicit-any
-    F extends (...args: any[]) => Promise<void>,
+    F extends (...args: any[]) => Promise<any>,
   >(task_name: string, fn: F, ...args: Parameters<F>): Promise<void> {
     return new Promise((resolve, reject) => {
+      console.log("Background task:", task_name);
       resolve(Tracing.traceAsync(`background: ${task_name}`, fn, ...args));
     })
       .catch((e) => {
@@ -2085,7 +2423,7 @@ export namespace Web {
     );
 
     const usernames: Name[] = [];
-    const agent_slugs = ["steve/random"];
+    const agent_slugs = await Agents.findAgentsForGame(c.get("db"), game);
 
     let form;
     switch (game) {
@@ -2141,7 +2479,7 @@ export namespace Web {
     );
   });
 
-  app.get("/g/:game/m/create_match", (c: GamePlayContext) => {
+  app.get("/g/:game/m/create_match", async (c: GamePlayContext) => {
     const parsed_game = GameKind.safeParse(c.req.param("game"));
     if (!parsed_game.success) {
       return c.notFound();
@@ -2163,7 +2501,7 @@ export namespace Web {
         }
 
         const usernames: Name[] = [];
-        const agent_slugs = ["steve/random"];
+        const agent_slugs = await Agents.findAgentsForGame(c.get("db"), game);
 
         return c.render(
           <Connect4Web.CreateConnect4MatchForm
@@ -2198,7 +2536,7 @@ export namespace Web {
     switch (game) {
       case "connect4": {
         const usernames: Name[] = [];
-        const agent_slugs = ["steve/random"];
+        const agent_slugs = await Agents.findAgentsForGame(c.get("db"), game);
 
         const parsed_form = CreateConnect4MatchFormData.safeParse(current_data);
         if (!parsed_form.success) {
@@ -2260,6 +2598,8 @@ export namespace Web {
         throw new Unreachable(game);
       }
     }
+
+    background("Agent Turn", Matches.takeMatchAgentTurn, c.get("db"), match_id);
 
     const url = `/g/${game}/m/${match_id}`;
     const redirect = {
@@ -2341,6 +2681,8 @@ export namespace Web {
       return c.notFound();
     }
 
+    background("Agent Turn", Matches.takeMatchAgentTurn, c.get("db"), match_id);
+
     let inner_view;
 
     switch (game) {
@@ -2413,7 +2755,6 @@ export namespace Web {
           );
         }
         const action = parsed_action.data;
-        // todo: Have this return the match view so we can do read-after-write.
         const result = await Matches.takeMatchUserTurn(
           c.get("db"),
           user,
@@ -2452,11 +2793,7 @@ export namespace Web {
       }
     }
 
-    background("test", async () => {
-      await sleep();
-      console.log("Background do the agent turn");
-      //throw new Error("Background error");
-    });
+    background("Agent Turn", Matches.takeMatchAgentTurn, c.get("db"), match_id);
 
     return c.render(
       <Match user={user} match_view={match_view}>
@@ -2672,6 +3009,73 @@ export namespace Web {
               >
               </Table>
             </div>
+          </div>
+        </div>
+      </div>,
+    );
+  });
+
+  app.get("/g/:game/a/:username/:agentname", async (c: GamePlayContext) => {
+    const parsed_game = GameKind.safeParse(c.req.param("game"));
+    if (!parsed_game.success) {
+      return c.notFound();
+    }
+    const game = parsed_game.data;
+
+    const parsed_username = Name.safeParse(c.req.param("username"));
+    if (!parsed_username.success) {
+      return c.notFound();
+    }
+    const username = parsed_username.data;
+
+    const parsed_agentname = Name.safeParse(c.req.param("agentname"));
+    if (!parsed_agentname.success) {
+      return c.notFound();
+    }
+    const agentname = parsed_agentname.data;
+
+    const user = c.get("user");
+    if (!user) {
+      return c.redirect("/");
+    }
+
+    const agent = await Agents.fetchAgentByUsernameAndAgentname(
+      c.get("db"),
+      username,
+      agentname,
+    );
+    if (agent instanceof Error) {
+      return c.notFound();
+    }
+
+    return c.render(
+      <div class="flex flex-col h-full">
+        <BreadCrumbs
+          links={[
+            { href: "/g", text: "Games" },
+            {
+              href: `/g/${game}`,
+              text: game.charAt(0).toUpperCase() + game.slice(1),
+            },
+            { href: `/g/${game}/a`, text: "Agents" },
+            {
+              href: `/g/${game}/a/${agent.slug}`,
+              text: agent.slug,
+            },
+          ]}
+        >
+        </BreadCrumbs>
+        <div class="grow">
+          <div>
+            <p>Agent</p>
+            <p>{agent.slug}</p>
+            <p>{agent.status.status}</p>
+            <p>{agent.game}</p>
+            <p>{agent.username} {agent.user_id}</p>
+            <p>{agent.agentname} {agent.agent_id}</p>
+            <p>{agent.status}</p>
+            <p>{agent.url}</p>
+            <p>{agent.created_at}</p>
           </div>
         </div>
       </div>,

@@ -12,7 +12,7 @@ function rand_action(state: Connect4State): Connect4Action {
   while (true) {
     const column = Math.floor(Math.random() * COLS);
     const action: Connect4Action = { game: "connect4", column };
-    if (Connect4.checkAction(state, player, action) instanceof GameError) {
+    if (!(Connect4.checkAction(state, player, action) instanceof GameError)) {
       return action;
     }
   }
