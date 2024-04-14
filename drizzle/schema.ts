@@ -525,13 +525,13 @@ export const agents = sqliteTable(
   },
   (table) => {
     return {
-      userIdx: index("user_idx").on(table.user_id),
-      gameIdx: index("game_idx").on(table.game),
-      gameStatusIdx: index("game_status_idx").on(
+      agentUserIdx: index("agent_user_idx").on(table.user_id),
+      agentGameIdx: index("agent_game_idx").on(table.game),
+      agentGameStatusIdx: index("agent_game_status_idx").on(
         table.game,
         table.status_kind,
       ),
-      agentnameIdx: uniqueIndex("agentname_idx").on(
+      agentAgentnameIdx: uniqueIndex("agent_agentname_idx").on(
         table.user_id,
         table.game,
         table.agentname,
@@ -559,11 +559,25 @@ export const matches = sqliteTable(
   },
   (table) => {
     return {
-      gameIdx: index("game_idx").on(table.game),
+      matchGameIdx: index("match_game_idx").on(table.game),
       // todo: list matches for a user should also show created_by even
       // if they are not a player.
-      createdByIdx: index("created_by_idx").on(table.created_by),
+      matchCreatedByIdx: index("match_created_by_idx").on(table.created_by),
     };
+  },
+);
+
+export const match_locks = sqliteTable(
+  "match_locks",
+  {
+    match_id: text("match_id").$type<MatchId>().primaryKey().references(
+      () => matches.match_id,
+      { onDelete: "cascade" },
+    ),
+    value: text("value").notNull(),
+    timestamp: integer("timestamp", { mode: "timestamp" })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
   },
 );
 
@@ -576,7 +590,7 @@ export const match_players = sqliteTable(
     match_id: text("match_id")
       .$type<MatchId>()
       .notNull()
-      .references(() => matches.match_id),
+      .references(() => matches.match_id, { onDelete: "cascade" }),
     player_number: integer("player_number").notNull(),
     player_kind: text("player_kind").$type<PlayerKind>().notNull(),
     user_id: text("user_id")
@@ -584,13 +598,13 @@ export const match_players = sqliteTable(
       .references(() => users.user_id),
     agent_id: text("agent_id")
       .$type<AgentId>()
-      .references(() => matches.match_id),
+      .references(() => agents.agent_id),
   },
   (table) => {
     return {
       pk: primaryKey({ columns: [table.match_id, table.player_number] }),
-      userIdx: index("user_idx").on(table.user_id),
-      agentIdx: index("agent_idx").on(table.agent_id),
+      matchPlayerUserIdx: index("match_player_user_idx").on(table.user_id),
+      matchPlayerAgentIdx: index("match_player_agent_idx").on(table.agent_id),
     };
   },
 );
@@ -604,7 +618,7 @@ export const match_turns = sqliteTable(
     match_id: text("match_id")
       .$type<MatchId>()
       .notNull()
-      .references(() => matches.match_id),
+      .references(() => matches.match_id, { onDelete: "cascade" }),
     turn_number: integer("turn_number").notNull(),
     status_kind: text("status_kind").$type<StatusKind>().notNull(),
     status: text("status", { mode: "json" }).$type<Status>().notNull(),
@@ -618,7 +632,9 @@ export const match_turns = sqliteTable(
   (table) => {
     return {
       pk: primaryKey({ columns: [table.match_id, table.turn_number] }),
-      statusKindIdx: index("status_kind_idx").on(table.status_kind),
+      matchTurnStatusKindIdx: index("match_turn_status_kind_idx").on(
+        table.status_kind,
+      ),
     };
   },
 );

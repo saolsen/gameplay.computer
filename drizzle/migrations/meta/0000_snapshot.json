@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "8dbf2336-2797-451e-8ed1-49fc2b3bd5b4",
+  "id": "6a94fa85-6da7-4ff0-b2d2-7b93e9bfb4aa",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "agents": {
@@ -66,30 +66,30 @@
         }
       },
       "indexes": {
-        "user_idx": {
-          "name": "user_idx",
+        "agent_user_idx": {
+          "name": "agent_user_idx",
           "columns": [
             "user_id"
           ],
           "isUnique": false
         },
-        "game_idx": {
-          "name": "game_idx",
+        "agent_game_idx": {
+          "name": "agent_game_idx",
           "columns": [
             "game"
           ],
           "isUnique": false
         },
-        "game_status_idx": {
-          "name": "game_status_idx",
+        "agent_game_status_idx": {
+          "name": "agent_game_status_idx",
           "columns": [
             "game",
             "status_kind"
           ],
           "isUnique": false
         },
-        "agentname_idx": {
-          "name": "agentname_idx",
+        "agent_agentname_idx": {
+          "name": "agent_agentname_idx",
           "columns": [
             "user_id",
             "game",
@@ -110,6 +110,51 @@
             "user_id"
           ],
           "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "match_locks": {
+      "name": "match_locks",
+      "columns": {
+        "match_id": {
+          "name": "match_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "timestamp": {
+          "name": "timestamp",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "match_locks_match_id_matches_match_id_fk": {
+          "name": "match_locks_match_id_matches_match_id_fk",
+          "tableFrom": "match_locks",
+          "tableTo": "matches",
+          "columnsFrom": [
+            "match_id"
+          ],
+          "columnsTo": [
+            "match_id"
+          ],
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -156,15 +201,15 @@
         }
       },
       "indexes": {
-        "user_idx": {
-          "name": "user_idx",
+        "match_player_user_idx": {
+          "name": "match_player_user_idx",
           "columns": [
             "user_id"
           ],
           "isUnique": false
         },
-        "agent_idx": {
-          "name": "agent_idx",
+        "match_player_agent_idx": {
+          "name": "match_player_agent_idx",
           "columns": [
             "agent_id"
           ],
@@ -182,7 +227,7 @@
           "columnsTo": [
             "match_id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "match_players_user_id_users_user_id_fk": {
@@ -198,15 +243,15 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "match_players_agent_id_matches_match_id_fk": {
-          "name": "match_players_agent_id_matches_match_id_fk",
+        "match_players_agent_id_agents_agent_id_fk": {
+          "name": "match_players_agent_id_agents_agent_id_fk",
           "tableFrom": "match_players",
-          "tableTo": "matches",
+          "tableTo": "agents",
           "columnsFrom": [
             "agent_id"
           ],
           "columnsTo": [
-            "match_id"
+            "agent_id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -285,8 +330,8 @@
         }
       },
       "indexes": {
-        "status_kind_idx": {
-          "name": "status_kind_idx",
+        "match_turn_status_kind_idx": {
+          "name": "match_turn_status_kind_idx",
           "columns": [
             "status_kind"
           ],
@@ -304,7 +349,7 @@
           "columnsTo": [
             "match_id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -360,15 +405,15 @@
         }
       },
       "indexes": {
-        "game_idx": {
-          "name": "game_idx",
+        "match_game_idx": {
+          "name": "match_game_idx",
           "columns": [
             "game"
           ],
           "isUnique": false
         },
-        "created_by_idx": {
-          "name": "created_by_idx",
+        "match_created_by_idx": {
+          "name": "match_created_by_idx",
           "columns": [
             "created_by"
           ],
