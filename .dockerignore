@@ -1,6 +1,6 @@
 .vscode
+agents
 drizzle
-gameplay
 .dockerignore
 .envrc
 .gitignore

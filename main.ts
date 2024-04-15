@@ -2,14 +2,13 @@ import { z } from "npm:zod@3.22.4";
 import { drizzle } from "npm:drizzle-orm@0.30.7/libsql";
 import { Hono } from "npm:hono@4.2.2";
 
-import { Schema, Tracing, Web } from "./gameplay_computer.tsx";
-
-import setupTracing = Tracing.setupTracing;
-import TracedClient = Tracing.TracedClient;
-import tracingMiddleware = Tracing.tracingMiddleware;
-
-import schema = Schema.schema;
-import app = Web.app;
+import {
+  setupTracing,
+  TracedClient,
+  tracingMiddleware,
+} from "./gameplay_computer/tracing.ts";
+import { GamePlayDB, schema } from "./gameplay_computer/schema.ts";
+import { app, GamePlayContext } from "./gameplay_computer/web.tsx";
 
 const config = z
   .object({
@@ -29,12 +28,12 @@ const client = new TracedClient({
   authToken: config.DB_TOKEN,
 });
 
-const db: Schema.GamePlayDB = drizzle(client, { schema });
+const db: GamePlayDB = drizzle(client, { schema });
 
-export const dev_app = new Hono();
+export const configured_app = new Hono();
 
-dev_app.use(tracingMiddleware);
-dev_app.use(async (c: Web.GamePlayContext, next) => {
+configured_app.use(tracingMiddleware);
+configured_app.use(async (c: GamePlayContext, next) => {
   c.set("db", db);
   c.set("clerk_publishable_key", config.CLERK_PUBLISHABLE_KEY);
   c.set("clerk_frontend_api", config.CLERK_FRONTEND_API);
@@ -42,6 +41,6 @@ dev_app.use(async (c: Web.GamePlayContext, next) => {
   await next();
 });
 
-dev_app.route("/", app);
+configured_app.route("/", app);
 
-Deno.serve(dev_app.fetch);
+Deno.serve(configured_app.fetch);
