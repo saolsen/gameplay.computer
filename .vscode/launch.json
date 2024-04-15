@@ -13,6 +13,7 @@
       "runtimeExecutable": "/Users/steve/.deno/bin/deno",
       "runtimeArgs": [
         "run",
+        "--unstable-kv",
         "--inspect-wait",
       ],
     },

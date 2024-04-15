@@ -28,8 +28,16 @@ import { expandConfig } from "npm:@libsql/core@0.6.0/config";
 import { encodeBaseUrl } from "npm:@libsql/core@0.6.0/uri";
 import { MiddlewareHandler } from "npm:hono@4.2.2";
 
-export function getTracer(): Tracer {
+export function tracer(): Tracer {
   return otelTrace.getTracer("gameplay");
+}
+
+export function attribute(name: string, value: string): void {
+  otelTrace.getActiveSpan()?.setAttribute(name, value);
+}
+
+export function event(name: string, attrs: Record<string, string>): void {
+  otelTrace.getActiveSpan()?.addEvent(name, attrs);
 }
 
 /**
@@ -71,7 +79,7 @@ export const tracingMiddleware: MiddlewareHandler = async (
       b3: prop_header,
     });
   }
-  await getTracer().startActiveSpan(
+  await tracer().startActiveSpan(
     `${c.req.method} ${c.req.url}`,
     {},
     active_context!,
@@ -126,7 +134,7 @@ export function traceAsync<
   fn: F,
   ...args: Parameters<F>
 ): Promise<Awaited<ReturnType<F>>> {
-  return getTracer().startActiveSpan(name, async (span: Span) => {
+  return tracer().startActiveSpan(name, async (span: Span) => {
     try {
       const result = await fn(...args);
       span.setStatus({ code: SpanStatusCode.OK });
@@ -148,7 +156,7 @@ export function trace<
   // deno-lint-ignore no-explicit-any
   F extends (...args: any[]) => any,
 >(name: string, fn: F, ...args: Parameters<F>): ReturnType<F> {
-  return getTracer().startActiveSpan(name, (span: Span) => {
+  return tracer().startActiveSpan(name, (span: Span) => {
     try {
       const result = fn(...args);
       span.setStatus({ code: SpanStatusCode.OK });
@@ -170,7 +178,7 @@ export async function tracedFetch(
   input: string | URL,
   init?: RequestInit,
 ): Promise<Response> {
-  return await getTracer().startActiveSpan(`fetch`, async (span) => {
+  return await tracer().startActiveSpan(`fetch`, async (span) => {
     const prop_output: { b3: string } = { b3: "" };
     propagation.inject(context.active(), prop_output);
     try {
@@ -225,7 +233,7 @@ export class TracedClient extends HttpClient {
     statements: InStatement[],
     mode?: TransactionMode,
   ): Promise<ResultSet[]> {
-    return await getTracer().startActiveSpan(`sqlite:batch`, async (span) => {
+    return await tracer().startActiveSpan(`sqlite:batch`, async (span) => {
       for (const statement of statements) {
         if (typeof statement === "string") {
           span.addEvent("sqlite.batch", {
@@ -256,7 +264,7 @@ export class TracedClient extends HttpClient {
   }
 
   async execute(statement: InStatement): Promise<ResultSet> {
-    return await getTracer().startActiveSpan(
+    return await tracer().startActiveSpan(
       `sqlite:execute`,
       async (span) => {
         if (typeof statement === "string") {

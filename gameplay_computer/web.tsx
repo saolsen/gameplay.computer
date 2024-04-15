@@ -10,13 +10,7 @@ import { getCookie } from "npm:hono@4.2.2/cookie";
 import { GameKind, Name, Player } from "../gameplay_game.ts";
 import { Connect4Action } from "../gameplay_connect4.ts";
 
-// declare module "npm:hono@4.2.2" {
-//   interface ContextRenderer {
-//     (content: JSX.Element): Response;
-//   }
-// }
-
-import { traceAsync } from "./tracing.ts";
+import { attribute, traceAsync, tracer } from "./tracing.ts";
 import { GamePlayDB, MatchId, SelectUser, Unreachable, Url } from "./schema.ts";
 import { ClerkUser, syncClerkUser } from "./users.ts";
 import {
@@ -35,6 +29,7 @@ import {
   takeMatchAgentTurn,
   takeMatchUserTurn,
 } from "./matches.ts";
+import { traced } from "./tracing.ts";
 
 export const CreateConnect4MatchFormData = z.object({
   game: z.literal("connect4"),
@@ -504,27 +499,44 @@ export const Connect4Match: FC<{
   );
 };
 
-export function sleep(milliseconds = 3000) {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+export const AgentTurnTask = z.object({
+  kind: z.literal("agent_turn"),
+  match_id: MatchId,
+});
+export type AgentTurnTask = z.infer<typeof AgentTurnTask>;
+const Task = z.discriminatedUnion("kind", [AgentTurnTask]);
+export type Task = z.infer<typeof Task>;
+
+export const processTask = traced("processTask", _processTask);
+async function _processTask(
+  db: GamePlayDB,
+  kv: Deno.Kv,
+  task: Task,
+): Promise<void> {
+  attribute("task", task.kind);
+  switch (task.kind) {
+    case "agent_turn": {
+      await takeMatchAgentTurn(db, task.match_id);
+      break;
+    }
+    default: {
+      throw new Unreachable(task.kind);
+    }
+  }
 }
 
-export function background<
-  // deno-lint-ignore no-explicit-any
-  F extends (...args: any[]) => Promise<any>,
->(task_name: string, fn: F, ...args: Parameters<F>): Promise<void> {
-  return new Promise((resolve, reject) => {
-    console.log("Background task:", task_name);
-    resolve(traceAsync(`background: ${task_name}`, fn, ...args));
-  })
-    .catch((e) => {
-      console.error(`Background task ${task_name} failed:`, e);
-    })
-    .then(() => {});
+export async function queueTask(kv: Deno.Kv, task: Task): Promise<void> {
+  await kv.enqueue(task);
+}
+
+export function sleep(milliseconds = 3000) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 export type ContextVars = {
   // Set by the wrapping app.
   db: GamePlayDB;
+  kv: Deno.Kv;
   clerk_publishable_key: string;
   clerk_frontend_api: string;
   clerk_jwt_key: string;
@@ -1097,7 +1109,7 @@ app.post("/g/:game/m/create_match", async (c: GamePlayContext) => {
     }
   }
 
-  background("Agent Turn", takeMatchAgentTurn, c.get("db"), match_id);
+  await queueTask(c.get("kv"), { kind: "agent_turn", match_id });
 
   const url = `/g/${game}/m/${match_id}`;
   const redirect = {
@@ -1179,7 +1191,7 @@ app.get("/g/:game/m/:match_id", async (c: GamePlayContext) => {
     return c.notFound();
   }
 
-  background("Agent Turn", takeMatchAgentTurn, c.get("db"), match_id);
+  await queueTask(c.get("kv"), { kind: "agent_turn", match_id });
 
   let inner_view;
 
@@ -1287,7 +1299,7 @@ app.post("/g/:game/m/:match_id/turns/create", async (c: GamePlayContext) => {
     }
   }
 
-  background("Agent Turn", takeMatchAgentTurn, c.get("db"), match_id);
+  await queueTask(c.get("kv"), { kind: "agent_turn", match_id });
 
   return c.render(
     <Match user={user} match_view={match_view}>
