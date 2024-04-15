@@ -262,6 +262,7 @@ async function _findMatchesForGameAndUser(
 export const createMatch = traced("createMatch", _createMatch);
 async function _createMatch(
   db: GamePlayDB,
+  kv: Deno.Kv,
   created_by: SelectUser,
   players: Player[],
   game: GameKind,
@@ -364,6 +365,7 @@ async function _createMatch(
     }),
   ]);
 
+  await kv.set(["match_turn", match_id], 0);
   return match_id;
 }
 
@@ -373,6 +375,7 @@ export const takeMatchUserTurn = traced(
 );
 export async function _takeMatchUserTurn(
   db: GamePlayDB,
+  kv: Deno.Kv,
   user: SelectUser,
   match_id: MatchId,
   action: NewAction,
@@ -462,6 +465,8 @@ export async function _takeMatchUserTurn(
       throw e;
     }
   }
+
+  await kv.set(["match_turn", match_id], match_view.turn_number + 1);
   return true;
 }
 
@@ -641,6 +646,7 @@ export async function _takeMatchAgentTurn(
     }),
   ]);
 
+  await kv.set(["match_turn", match_id], match_view.turn_number + 1);
   await queueTask(kv, { kind: "agent_turn", match_id });
 
   return true;

@@ -6,6 +6,7 @@ import { Child, FC } from "npm:hono@4.2.2/jsx";
 import { jsxRenderer, useRequestContext } from "npm:hono@4.2.2/jsx-renderer";
 import { html } from "npm:hono@4.2.2/html";
 import { getCookie } from "npm:hono@4.2.2/cookie";
+import { streamSSE } from "npm:hono@4.2.2/streaming";
 
 import { GameKind, Name, Player } from "../gameplay_game.ts";
 import { Connect4Action } from "../gameplay_connect4.ts";
@@ -1055,6 +1056,7 @@ app.post("/g/:game/m/create_match", async (c: GamePlayContext) => {
       const { players } = new_match_spec!;
       const new_match = await createMatch(
         c.get("db"),
+        c.get("kv"),
         user,
         players,
         "connect4",
@@ -1104,6 +1106,8 @@ const Match: FC<{
   const match_id = match_view.match_id;
   const current_turn = match_view.current_turn;
 
+  // Poll for updates if the game is in_progress and the
+  // player is not active.
   if (current_turn.status.status === "in_progress") {
     const player_indexes = new Set();
     for (let i = 0; i < match_view.players.length; i++) {
@@ -1113,24 +1117,24 @@ const Match: FC<{
       }
     }
     for (const player_i of current_turn.status.active_players) {
-      if (player_indexes.has(player_i)) {
+      if (!player_indexes.has(player_i)) {
         return (
-          <div>
-            <div class="container">{children}</div>
+          <div
+            hx-ext="sse"
+            sse-connect={`/g/${game}/m/${match_id}/changes?turn=${current_turn.turn_number}`}
+          >
+            <div
+              class="container"
+              hx-get={`/g/${game}/m/${match_id}`}
+              hx-trigger="sse:message"
+              hx-target="#match"
+            >
+              {children}
+            </div>
           </div>
         );
       }
     }
-    // Poll for updates if the player is not active.
-    return (
-      <div
-        hx-get={`/g/${game}/m/${match_id}`}
-        hx-trigger="load delay:500ms"
-        hx-target="#match"
-      >
-        {children}
-      </div>
-    );
   }
   return (
     <div>
@@ -1138,6 +1142,47 @@ const Match: FC<{
     </div>
   );
 };
+
+app.get("/g/:game/m/:match_id/changes", (c: GamePlayContext) => {
+  const parsed_game = GameKind.safeParse(c.req.param("game"));
+  if (!parsed_game.success) {
+    return c.notFound();
+  }
+  const game = parsed_game.data;
+
+  const parsed_match_id = MatchId.safeParse(c.req.param("match_id"));
+  if (!parsed_match_id.success) {
+    return c.notFound();
+  }
+  const match_id = parsed_match_id.data;
+
+  const parsed_turn = z.coerce.number().safeParse(c.req.query("turn"));
+  if (!parsed_turn.success) {
+    return c.notFound();
+  }
+  const turn = parsed_turn.data;
+
+  const user = c.get("user");
+  if (!user) {
+    return c.redirect("/");
+  }
+
+  // todo: authorize
+
+  return streamSSE(c, async (stream) => {
+    const changes = c.get("kv").watch<number[]>([["match_turn", match_id]]);
+    for await (const [change] of changes) {
+      if (change.value !== null && change.versionstamp !== null) {
+        const new_turn = change.value;
+        if (new_turn > turn) {
+          await stream.writeSSE({
+            data: new_turn.toString(),
+          });
+        }
+      }
+    }
+  });
+});
 
 app.get("/g/:game/m/:match_id", async (c: GamePlayContext) => {
   const parsed_game = GameKind.safeParse(c.req.param("game"));
@@ -1234,6 +1279,7 @@ app.post("/g/:game/m/:match_id/turns/create", async (c: GamePlayContext) => {
       const action = parsed_action.data;
       const result = await takeMatchUserTurn(
         c.get("db"),
+        c.get("kv"),
         user,
         match_id,
         {

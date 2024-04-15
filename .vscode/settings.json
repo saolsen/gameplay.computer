@@ -11,7 +11,8 @@
     "OTLP",
     "SEMRESATTRS",
     "uuidv",
-    "vals"
+    "vals",
+    "versionstamp"
   ],
   "editor.formatOnSave": true,
   "prettier.enable": false,
