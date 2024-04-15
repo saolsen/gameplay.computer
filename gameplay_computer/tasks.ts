@@ -11,18 +11,28 @@ export type AgentTurnTask = z.infer<typeof AgentTurnTask>;
 const Task = z.discriminatedUnion("kind", [AgentTurnTask]);
 export type Task = z.infer<typeof Task>;
 
-export const processTask = traced("processTask", _processTask);
-async function _processTask(
+export async function processTask(
   db: GamePlayDB,
   kv: Deno.Kv,
   msg: { task: Task; b3: string },
 ): Promise<void> {
   const b3 = msg.b3;
-  await traceTask(msg.task.kind, b3, async () => {
+  return await traceTask(msg.task.kind, b3, async () => {
     attribute("task", msg.task.kind);
     switch (msg.task.kind) {
       case "agent_turn": {
-        await takeMatchAgentTurn(db, kv, msg.task.match_id);
+        const next_turn_agent = await takeMatchAgentTurn(
+          db,
+          kv,
+          msg.task.match_id,
+        );
+        // queue another task if the next turn is agent.
+        if (next_turn_agent) {
+          await queueTask(kv, {
+            kind: "agent_turn",
+            match_id: msg.task.match_id,
+          }, b3);
+        }
         break;
       }
       default: {
@@ -32,7 +42,13 @@ async function _processTask(
   });
 }
 
-export async function queueTask(kv: Deno.Kv, task: Task): Promise<void> {
-  const b3 = getPropB3();
+export async function queueTask(
+  kv: Deno.Kv,
+  task: Task,
+  b3: string | null = null,
+): Promise<void> {
+  if (b3 === null) {
+    b3 = getPropB3();
+  }
   await kv.enqueue({ task, b3 });
 }

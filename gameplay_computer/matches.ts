@@ -32,7 +32,6 @@ import {
 } from "./schema.ts";
 import { fetchUserByUsername } from "./users.ts";
 import { fetchAgentByUsernameAndAgentname } from "./agents.ts";
-import { queueTask } from "./tasks.ts";
 
 export function matchId(): MatchId {
   return `m_${Uuid25.fromBytes(uuidv7obj().bytes).value}` as MatchId;
@@ -470,6 +469,8 @@ export async function _takeMatchUserTurn(
   return true;
 }
 
+// take an agent's turn.
+// returns true if the next turn is an agent's turn too.
 export const takeMatchAgentTurn = traced(
   "takeMatchAgentTurn",
   _takeMatchAgentTurn,
@@ -647,7 +648,13 @@ export async function _takeMatchAgentTurn(
   ]);
 
   await kv.set(["match_turn", match_id], match_view.turn_number + 1);
-  await queueTask(kv, { kind: "agent_turn", match_id });
 
-  return true;
+  if (
+    new_status.status === "in_progress" &&
+    match_view.players[new_status.active_players[0]].kind === "agent"
+  ) {
+    return true;
+  }
+
+  return false;
 }

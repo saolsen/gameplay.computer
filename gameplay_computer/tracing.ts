@@ -12,7 +12,7 @@ import { OTLPTraceExporter } from "npm:@opentelemetry/exporter-trace-otlp-http";
 import { B3Propagator } from "npm:@opentelemetry/propagator-b3";
 import { Resource } from "npm:@opentelemetry/resources";
 import {
-  SimpleSpanProcessor,
+  BatchSpanProcessor,
   WebTracerProvider,
 } from "npm:@opentelemetry/sdk-trace-web";
 import { SEMRESATTRS_SERVICE_NAME } from "npm:@opentelemetry/semantic-conventions";
@@ -52,7 +52,7 @@ export function setupTracing(honeycomb_api_key: string): void {
 
   // Send traces to honeycomb.
   provider.addSpanProcessor(
-    new SimpleSpanProcessor(
+    new BatchSpanProcessor(
       new OTLPTraceExporter({
         url: "https://api.honeycomb.io/v1/traces",
         headers: {

@@ -1079,6 +1079,7 @@ app.post("/g/:game/m/create_match", async (c: GamePlayContext) => {
     }
   }
 
+  // todo: should only queue this if player0 is an agent
   await queueTask(c.get("kv"), { kind: "agent_turn", match_id });
 
   const url = `/g/${game}/m/${match_id}`;
@@ -1311,7 +1312,14 @@ app.post("/g/:game/m/:match_id/turns/create", async (c: GamePlayContext) => {
     }
   }
 
-  await queueTask(c.get("kv"), { kind: "agent_turn", match_id });
+  // queue task if an agent is next
+  if (
+    match_view.current_turn.status.status === "in_progress" &&
+    match_view.players[match_view.current_turn.status.active_players[0]]
+        .kind === "agent"
+  ) {
+    await queueTask(c.get("kv"), { kind: "agent_turn", match_id });
+  }
 
   return c.render(
     <Match user={user} match_view={match_view}>
