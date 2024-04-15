@@ -1125,7 +1125,10 @@ export namespace Matches {
       .where(
         and(
           eq(schema.matches.game, game),
-          eq(schema.match_players.user_id, user_id),
+          or(
+            eq(schema.match_players.user_id, user_id),
+            eq(schema.matches.created_by, user_id),
+          ),
         ),
       );
 
@@ -2361,6 +2364,12 @@ export namespace Web {
       user.user_id,
     );
 
+    const agents = await Agents.findAgentsForGameAndUser(
+      c.get("db"),
+      game,
+      user,
+    );
+
     return c.render(
       <div class="flex flex-col h-full">
         <BreadCrumbs
@@ -2397,7 +2406,17 @@ export namespace Web {
               <a class="link" href={`/g/${game}/a`}>
                 <h2 class="text-4xl">Agents</h2>
               </a>
-              <Table columns={["Id", "Link"]} rows={[]}></Table>
+              <Table
+                columns={["Id", "Status"]}
+                rows={agents.map((agent) => {
+                  return [
+                    <a class="link" href={`/g/${game}/a/${agent.agent_slug}`}>
+                      {agent.agent_slug}
+                    </a>,
+                    <span>{agent.status_kind}</span>,
+                  ];
+                })}
+              />
             </div>
           </div>
         </div>
@@ -3006,8 +3025,7 @@ export namespace Web {
                     <span>{agent.status_kind}</span>,
                   ];
                 })}
-              >
-              </Table>
+              />
             </div>
           </div>
         </div>
