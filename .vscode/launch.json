@@ -42,12 +42,25 @@
         "run",
         "--inspect-wait",
       ],
+    },
+    {
+      "request": "launch",
+      "name": "connect4_agent_fails",
+      "type": "node",
+      "program": "${workspaceFolder}/agents/agent.ts",
+      "args": ["connect4_agent_fails", "8003"],
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "/Users/steve/.deno/bin/deno",
+      "runtimeArgs": [
+        "run",
+        "--inspect-wait",
+      ],
     }
   ],
   "compounds": [
     {
       "name": "all",
-      "configurations": ["gameplay_computer", "connect4_agent_rand", "connect4_agent_mcts"],
+      "configurations": ["gameplay_computer", "connect4_agent_rand", "connect4_agent_mcts", "connect4_agent_fails"],
       "stopAll": true
     }
   ]

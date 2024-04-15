@@ -1080,6 +1080,7 @@ app.post("/g/:game/m/create_match", async (c: GamePlayContext) => {
   }
 
   // todo: should only queue this if player0 is an agent
+  // then I really can get rid of the locking.
   await queueTask(c.get("kv"), { kind: "agent_turn", match_id });
 
   const url = `/g/${game}/m/${match_id}`;

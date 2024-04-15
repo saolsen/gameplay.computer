@@ -19,6 +19,7 @@ import {
 
 import { trace, traced, tracedFetch } from "./tracing.ts";
 import {
+  Action,
   AgentId,
   GamePlayDB,
   MatchId,
@@ -482,6 +483,10 @@ export async function _takeMatchAgentTurn(
 ): Promise<boolean | NotFound | NotAllowed | GameError> {
   // TODO: Make it so there can only be one active player, then all this logic gets easier.
 
+  // todo: I don't need the locks any more since I'm only calling this
+  // when it is actually an agent's turn and the queue handles retries.
+  // do still need good error handling though.
+
   // Lock the match if it's an agent's turn and it's not already locked.
   const lock_value = Uuid25.fromBytes(uuidv7obj().bytes).value;
   const lock = await db.transaction(
@@ -568,57 +573,111 @@ export async function _takeMatchAgentTurn(
 
   const state = match_view.current_turn.state;
 
-  // todo: retry logic
-  //for (let retry = 0; retry < 3; retry++) {
-
   // Query the agent for the action.
-  let response;
+  let response: { kind: "error"; reason: string } | { kind: "ok"; json: any };
   try {
-    const agent_action = await tracedFetch(agent.url, {
+    const resp = await tracedFetch(agent.url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(state),
     });
-    console.log(agent_action);
-    response = await agent_action.json();
-  } catch (e) {
-    console.error(e);
-    // todo: good error handling of all the cases.
-    throw e;
+
+    if (!resp.ok) {
+      response = {
+        kind: "error",
+        reason:
+          `Agent '${agent.slug}' returned ${resp.status} ${resp.statusText}`,
+      };
+    } else {
+      try {
+        response = { kind: "ok", json: await resp.json() };
+      } catch (_e) {
+        response = {
+          kind: "error",
+          reason: `Agent '${agent.slug}' returned invalid JSON`,
+        };
+      }
+    }
+  } catch (_e) {
+    response = { kind: "error", reason: `Error Calling Agent '${agent.slug}'` };
   }
 
-  let action;
-  let new_status;
-  switch (match_view.game) {
-    case "connect4": {
-      action = Connect4Action.parse(response);
+  let action: Action | null = null;
+  let new_status: Status;
 
-      const action_check = trace(
-        "Connect4.checkAction",
-        Connect4.checkAction,
-        state,
-        player_i,
-        action,
-      );
-      if (action_check instanceof GameError) {
-        return action_check;
+  if (response.kind === "error") {
+    new_status = {
+      status: "over",
+      result: {
+        kind: "errored",
+        reason: response.reason,
+      },
+    };
+  } else {
+    switch (match_view.game) {
+      case "connect4": {
+        const check_action = Connect4Action.safeParse(response.json);
+        if (!check_action.success) {
+          new_status = {
+            status: "over",
+            result: {
+              kind: "errored",
+              reason: `Agent '${agent.slug}' returned invalid action ${
+                JSON.stringify(response.json)
+              }`,
+            },
+          };
+          break;
+        }
+
+        action = check_action.data;
+
+        const action_check = trace(
+          "Connect4.checkAction",
+          Connect4.checkAction,
+          state,
+          player_i,
+          action,
+        );
+        if (action_check instanceof GameError) {
+          new_status = {
+            status: "over",
+            result: {
+              kind: "errored",
+              reason: `Agent '${agent.slug}' returned illegal action ${
+                JSON.stringify(response)
+              }`,
+            },
+          };
+          break;
+        }
+
+        const new_s = trace(
+          "Connect4.applyAction",
+          Connect4.applyAction,
+          state,
+          player_i,
+          action,
+        );
+        if (new_s instanceof GameError) {
+          // note: this shouldn't happen since we checked it above.
+          new_status = {
+            status: "over",
+            result: {
+              kind: "errored",
+              reason: `Unexpected Error applying action ${new_s.message}`,
+            },
+          };
+        } else {
+          new_status = new_s;
+        }
+        break;
       }
-      new_status = trace(
-        "Connect4.applyAction",
-        Connect4.applyAction,
-        state,
-        player_i,
-        action,
-      );
-      if (new_status instanceof GameError) {
-        return new_status;
+      default: {
+        throw new Unreachable(match_view.game);
       }
-      break;
-    }
-    default: {
-      throw new Unreachable(match_view.game);
     }
   }
 
