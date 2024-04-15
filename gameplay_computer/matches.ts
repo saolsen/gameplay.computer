@@ -485,7 +485,6 @@ export async function _takeMatchAgentTurn(
 
   // todo: I don't need the locks any more since I'm only calling this
   // when it is actually an agent's turn and the queue handles retries.
-  // do still need good error handling though.
 
   // Lock the match if it's an agent's turn and it's not already locked.
   const lock_value = Uuid25.fromBytes(uuidv7obj().bytes).value;
