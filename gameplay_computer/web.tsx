@@ -11,7 +11,6 @@ import { streamSSE } from "npm:hono@4.2.2/streaming";
 import { GameKind, Name, Player } from "../gameplay_game.ts";
 import { Connect4Action } from "../gameplay_connect4.ts";
 
-import { attribute, traceAsync, tracer } from "./tracing.ts";
 import { GamePlayDB, MatchId, SelectUser, Unreachable, Url } from "./schema.ts";
 import { ClerkUser, syncClerkUser } from "./users.ts";
 import {
@@ -27,10 +26,8 @@ import {
   fetchMatchById,
   findMatchesForGameAndUser,
   MatchView,
-  takeMatchAgentTurn,
   takeMatchUserTurn,
 } from "./matches.ts";
-import { traced } from "./tracing.ts";
 import { queueTask } from "./tasks.ts";
 
 export const CreateConnect4MatchFormData = z.object({

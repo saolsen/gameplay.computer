@@ -1,6 +1,6 @@
 import { z } from "npm:zod@3.22.4";
 import { GamePlayDB, MatchId, Unreachable } from "./schema.ts";
-import { attribute, traced } from "./tracing.ts";
+import { attribute, getPropB3, traced, tracer, traceTask } from "./tracing.ts";
 import { takeMatchAgentTurn } from "./matches.ts";
 
 export const AgentTurnTask = z.object({
@@ -15,20 +15,24 @@ export const processTask = traced("processTask", _processTask);
 async function _processTask(
   db: GamePlayDB,
   kv: Deno.Kv,
-  task: Task,
+  msg: { task: Task; b3: string },
 ): Promise<void> {
-  attribute("task", task.kind);
-  switch (task.kind) {
-    case "agent_turn": {
-      await takeMatchAgentTurn(db, kv, task.match_id);
-      break;
+  const b3 = msg.b3;
+  await traceTask(msg.task.kind, b3, async () => {
+    attribute("task", msg.task.kind);
+    switch (msg.task.kind) {
+      case "agent_turn": {
+        await takeMatchAgentTurn(db, kv, msg.task.match_id);
+        break;
+      }
+      default: {
+        throw new Unreachable(msg.task.kind);
+      }
     }
-    default: {
-      throw new Unreachable(task.kind);
-    }
-  }
+  });
 }
 
 export async function queueTask(kv: Deno.Kv, task: Task): Promise<void> {
-  await kv.enqueue(task);
+  const b3 = getPropB3();
+  await kv.enqueue({ task, b3 });
 }

@@ -115,6 +115,41 @@ export const tracingMiddleware: MiddlewareHandler = async (
   );
 };
 
+export async function traceTask<
+  // deno-lint-ignore no-explicit-any
+  F extends (...args: any[]) => any,
+>(
+  kind: string,
+  b3: string,
+  fn: F,
+  ...args: Parameters<F>
+): Promise<Awaited<ReturnType<F>>> {
+  const active_context = propagation.extract(context.active(), {
+    b3,
+  });
+  return await tracer().startActiveSpan(
+    `Task: ${kind}`,
+    {},
+    active_context!,
+    async (span: Span) => {
+      try {
+        const result = await fn(...args);
+        span.setStatus({ code: SpanStatusCode.OK });
+        return result;
+      } catch (error) {
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: error.message,
+        });
+        span.recordException(error);
+        throw error;
+      } finally {
+        span.end();
+      }
+    },
+  );
+}
+
 export function traced<
   // deno-lint-ignore no-explicit-any
   F extends (...args: any[]) => any,
@@ -174,24 +209,26 @@ export function trace<
   });
 }
 
+export function getPropB3(): string {
+  const prop_output: { b3: string } = { b3: "" };
+  propagation.inject(context.active(), prop_output);
+  return prop_output.b3;
+}
+
 export async function tracedFetch(
   input: string | URL,
   init?: RequestInit,
 ): Promise<Response> {
   return await tracer().startActiveSpan(`fetch`, async (span) => {
-    const prop_output: { b3: string } = { b3: "" };
-    propagation.inject(context.active(), prop_output);
+    const b3 = getPropB3();
     try {
-      console.log("fetching", input);
-      console.log(init);
       const resp: Response = await fetch(input + "/", {
         ...init,
         headers: {
-          b3: prop_output.b3,
+          b3,
           ...(init?.headers ?? {}),
         },
       });
-      console.log(resp);
       span.setAttributes({
         "http.url": resp.url,
         "response.status_code": resp.status,
@@ -206,12 +243,12 @@ export async function tracedFetch(
       }
       return resp;
     } catch (error) {
-      console.error(error);
       span.setStatus({
         code: SpanStatusCode.ERROR,
         message: error.message,
       });
-      throw new Error(error);
+      span.recordException(error);
+      throw error;
     } finally {
       span.end();
     }
@@ -256,7 +293,8 @@ export class TracedClient extends HttpClient {
           code: SpanStatusCode.ERROR,
           message: error.message,
         });
-        throw new Error(error);
+        span.recordException(error);
+        throw error;
       } finally {
         span.end();
       }
@@ -287,7 +325,8 @@ export class TracedClient extends HttpClient {
             code: SpanStatusCode.ERROR,
             message: error.message,
           });
-          throw new Error(error);
+          span.recordException(error);
+          throw new error();
         } finally {
           span.end();
         }
