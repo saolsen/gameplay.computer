@@ -18,7 +18,6 @@ export const Connect4State = z.object({
 export type Connect4State = z.infer<typeof Connect4State>;
 
 export const Connect4Action = z.object({
-  game: z.literal("connect4"),
   column: z.coerce.number().nonnegative().lt(7),
 });
 export type Connect4Action = z.infer<typeof Connect4Action>;
@@ -141,7 +140,7 @@ export function checkStatus(state: Connect4State): Status | GameError {
     if (get(state, col, ROWS - 1) === null) {
       return {
         status: "in_progress",
-        active_players: [state.next_player],
+        active_player: state.next_player,
       };
     }
   }

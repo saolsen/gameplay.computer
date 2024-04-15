@@ -49,7 +49,7 @@ export type StatusKind = z.infer<typeof StatusKind>;
 
 export const InProgress = z.object({
   status: z.literal("in_progress"),
-  active_players: z.array(z.number()),
+  active_player: z.number(),
 });
 export type InProgress = z.infer<typeof InProgress>;
 

@@ -13,7 +13,7 @@ function rand_action(state: Connect4State): Connect4Action {
   const player = state.next_player;
   while (true) {
     const column = Math.floor(Math.random() * COLS);
-    const action: Connect4Action = { game: "connect4", column };
+    const action: Connect4Action = { column };
     if (!(Connect4.checkAction(state, player, action) instanceof GameError)) {
       return action;
     }
@@ -67,10 +67,10 @@ function agent(state: Connect4State): Connect4Action {
   // Keep track of the number of wins for each action.
   // Pick the action with the highest win rate.
   let max_score = Number.MIN_VALUE;
-  let best_action: Connect4Action = { game: "connect4", column: 0 };
+  let best_action: Connect4Action = { column: 0 };
 
   for (let col = 0; col < COLS; col++) {
-    const action: Connect4Action = { game: "connect4", column: col };
+    const action: Connect4Action = { column: col };
     const check = Connect4.checkAction(state, state.next_player, action);
     if (!(check instanceof GameError)) {
       const score = score_action(state, action);

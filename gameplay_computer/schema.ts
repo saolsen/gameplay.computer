@@ -83,7 +83,9 @@ export const AgentId = z
   .length(27)
   .transform((k) => k as AgentId);
 
-export const Action = z.discriminatedUnion("game", [Connect4Action]);
+export const Action = z.discriminatedUnion("game", [
+  z.object({ game: z.literal("connect4"), action: Connect4Action }),
+]);
 export type Action = z.infer<typeof Action>;
 
 export const State = z.discriminatedUnion("game", [Connect4State]);
@@ -206,24 +208,8 @@ export const matches = sqliteTable(
   (table) => {
     return {
       matchGameIdx: index("match_game_idx").on(table.game),
-      // todo: list matches for a user should also show created_by even
-      // if they are not a player.
       matchCreatedByIdx: index("match_created_by_idx").on(table.created_by),
     };
-  },
-);
-
-export const match_locks = sqliteTable(
-  "match_locks",
-  {
-    match_id: text("match_id").$type<MatchId>().primaryKey().references(
-      () => matches.match_id,
-      { onDelete: "cascade" },
-    ),
-    value: text("value").notNull(),
-    timestamp: integer("timestamp", { mode: "timestamp" })
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP`),
   },
 );
 
@@ -294,7 +280,6 @@ export const schema = {
   matches,
   match_players,
   match_turns,
-  match_locks,
 };
 
 export type GamePlayDB = LibSQLDatabase<typeof schema>;

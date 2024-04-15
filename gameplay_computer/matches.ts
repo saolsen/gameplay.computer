@@ -7,6 +7,7 @@ import { alias } from "npm:drizzle-orm@0.30.7/sqlite-core";
 import {
   GameError,
   GameKind,
+  Json,
   Player,
   PlayerKind,
   Status,
@@ -253,7 +254,7 @@ async function _findMatchesForGameAndUser(
     const match = matches.get(row.match_id);
     match.active_player = match.active_player ||
       (row.status.status === "in_progress" &&
-        row.status.active_players.includes(row.player_number));
+        row.status.active_player === row.player_number);
   }
 
   return Array.from(matches.values());
@@ -266,7 +267,12 @@ async function _createMatch(
   created_by: SelectUser,
   players: Player[],
   game: GameKind,
-): Promise<MatchId | NotFound | NotAllowed | GameError> {
+): Promise<
+  | { match_id: MatchId; first_player_agent: boolean }
+  | NotFound
+  | NotAllowed
+  | GameError
+> {
   const player_ids: {
     player_kind: PlayerKind;
     user_id: UserId | null;
@@ -366,7 +372,10 @@ async function _createMatch(
   ]);
 
   await kv.set(["match_turn", match_id], 0);
-  return match_id;
+  return {
+    match_id,
+    first_player_agent: players[status.active_player].kind === "agent",
+  };
 }
 
 export const takeMatchUserTurn = traced(
@@ -389,8 +398,7 @@ export async function _takeMatchUserTurn(
     return new GameError("state", "Match is not in progress.");
   }
 
-  // note: hardcoded to one active player. Fix for multiple players.
-  const player_i = match_view.current_turn.status.active_players[0];
+  const player_i = match_view.current_turn.status.active_player;
   const player = match_view.players[player_i];
   if (player.kind !== "user") {
     throw new Todo("Agent players.");
@@ -451,7 +459,7 @@ export async function _takeMatchUserTurn(
         status_kind: new_status.status,
         status: new_status,
         player_number: player_i,
-        action: action.action,
+        action,
         state,
       }),
     ]);
@@ -481,68 +489,6 @@ export async function _takeMatchAgentTurn(
   kv: Deno.Kv,
   match_id: MatchId,
 ): Promise<boolean | NotFound | NotAllowed | GameError> {
-  // TODO: Make it so there can only be one active player, then all this logic gets easier.
-
-  // todo: I don't need the locks any more since I'm only calling this
-  // when it is actually an agent's turn and the queue handles retries.
-
-  // Lock the match if it's an agent's turn and it's not already locked.
-  const lock_value = Uuid25.fromBytes(uuidv7obj().bytes).value;
-  const lock = await db.transaction(
-    async (_tx) => {
-      const [lock_match_id] = await db.select({
-        match_id: schema.matches.match_id,
-      }).from(
-        schema.matches,
-      ).innerJoin(
-        schema.match_turns,
-        and(
-          eq(schema.match_turns.match_id, schema.matches.match_id),
-          eq(schema.match_turns.turn_number, schema.matches.turn_number),
-        ),
-      ).innerJoin(
-        schema.match_players,
-        and(
-          eq(schema.match_players.match_id, schema.matches.match_id),
-          eq(
-            schema.match_players.player_number,
-            sql`${schema.match_turns.status} -> '$.active_players[0]'`,
-          ),
-        ),
-      ).leftJoin(
-        schema.match_locks,
-        eq(schema.match_locks.match_id, schema.matches.match_id),
-      )
-        .where(
-          and(
-            eq(schema.matches.match_id, match_id),
-            eq(schema.match_turns.status_kind, "in_progress"),
-            eq(schema.match_players.player_kind, "agent"),
-            or(
-              isNull(schema.match_locks.match_id),
-              gt(
-                sql`strftime('%s', 'now') - strftime('%s', ${schema.match_locks.timestamp})`,
-                60 * 1,
-              ),
-            ),
-          ),
-        );
-      if (lock_match_id) {
-        const result = await db.insert(schema.match_locks).values({
-          match_id,
-          value: lock_value,
-        }).returning({ match_id: schema.match_locks.match_id });
-        return result[0].match_id;
-      }
-      return null;
-    },
-  );
-
-  if (lock === null) {
-    console.log("match is locked");
-    return false;
-  }
-
   const match_view = await fetchMatchById(db, match_id);
   if (match_view instanceof NotFound) {
     return match_view;
@@ -552,8 +498,7 @@ export async function _takeMatchAgentTurn(
     return false;
   }
 
-  // note: hardcoded to one active player. Fix for multiple players.
-  const player_i = match_view.current_turn.status.active_players[0];
+  const player_i = match_view.current_turn.status.active_player;
   const player = match_view.players[player_i];
   if (player.kind !== "agent") {
     return false;
@@ -573,7 +518,7 @@ export async function _takeMatchAgentTurn(
   const state = match_view.current_turn.state;
 
   // Query the agent for the action.
-  let response: { kind: "error"; reason: string } | { kind: "ok"; json: any };
+  let response: { kind: "error"; reason: string } | { kind: "ok"; json: Json };
   try {
     const resp = await tracedFetch(agent.url, {
       method: "POST",
@@ -631,14 +576,14 @@ export async function _takeMatchAgentTurn(
           break;
         }
 
-        action = check_action.data;
+        action = { game: "connect4", action: check_action.data };
 
         const action_check = trace(
           "Connect4.checkAction",
           Connect4.checkAction,
           state,
           player_i,
-          action,
+          action.action,
         );
         if (action_check instanceof GameError) {
           new_status = {
@@ -658,7 +603,7 @@ export async function _takeMatchAgentTurn(
           Connect4.applyAction,
           state,
           player_i,
-          action,
+          action.action,
         );
         if (new_s instanceof GameError) {
           // note: this shouldn't happen since we checked it above.
@@ -682,12 +627,6 @@ export async function _takeMatchAgentTurn(
 
   // Update the match.
   await db.batch([
-    db.delete(schema.match_locks).where(
-      and(
-        eq(schema.match_locks.match_id, match_id),
-        eq(schema.match_locks.value, lock_value),
-      ),
-    ),
     db
       .update(schema.matches)
       .set({
@@ -709,7 +648,7 @@ export async function _takeMatchAgentTurn(
 
   if (
     new_status.status === "in_progress" &&
-    match_view.players[new_status.active_players[0]].kind === "agent"
+    match_view.players[new_status.active_player].kind === "agent"
   ) {
     return true;
   }

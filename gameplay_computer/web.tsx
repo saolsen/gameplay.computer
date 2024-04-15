@@ -332,9 +332,7 @@ export const Connect4Match: FC<{
   const current_turn: Connect4CurrentTurn = connect4_match.current_turn;
   switch (current_turn.status.status) {
     case "in_progress": {
-      const active_players = current_turn.status.active_players;
-      console.assert(active_players.length === 1);
-      player_i = active_players[0];
+      player_i = current_turn.status.active_player;
       player = connect4_match.players[player_i];
       if (player !== undefined) {
         if (player_i === 0) {
@@ -1034,7 +1032,7 @@ app.post("/g/:game/m/create_match", async (c: GamePlayContext) => {
   const current_data = await c.req.parseBody();
 
   let match_id;
-
+  let first_player_agent = false;
   switch (game) {
     case "connect4": {
       const usernames: Name[] = [];
@@ -1094,7 +1092,8 @@ app.post("/g/:game/m/create_match", async (c: GamePlayContext) => {
         );
       }
 
-      match_id = new_match;
+      match_id = new_match.match_id;
+      first_player_agent = new_match.first_player_agent;
       break;
     }
     default: {
@@ -1102,9 +1101,12 @@ app.post("/g/:game/m/create_match", async (c: GamePlayContext) => {
     }
   }
 
-  // todo: should only queue this if player0 is an agent
-  // then I really can get rid of the locking.
-  await queueTask(c.get("kv"), { kind: "agent_turn", match_id });
+  if (first_player_agent) {
+    await queueTask(c.get("kv"), {
+      kind: "agent_turn",
+      match_id,
+    });
+  }
 
   const url = `/g/${game}/m/${match_id}`;
   const redirect = {
@@ -1138,24 +1140,23 @@ const Match: FC<{
         player_indexes.add(i);
       }
     }
-    for (const player_i of current_turn.status.active_players) {
-      if (!player_indexes.has(player_i)) {
-        return (
+
+    if (!player_indexes.has(current_turn.status.active_player)) {
+      return (
+        <div
+          hx-ext="sse"
+          sse-connect={`/g/${game}/m/${match_id}/changes?turn=${current_turn.turn_number}`}
+        >
           <div
-            hx-ext="sse"
-            sse-connect={`/g/${game}/m/${match_id}/changes?turn=${current_turn.turn_number}`}
+            class="container"
+            hx-get={`/g/${game}/m/${match_id}`}
+            hx-trigger="sse:message"
+            hx-target="#match"
           >
-            <div
-              class="container"
-              hx-get={`/g/${game}/m/${match_id}`}
-              hx-trigger="sse:message"
-              hx-target="#match"
-            >
-              {children}
-            </div>
+            {children}
           </div>
-        );
-      }
+        </div>
+      );
     }
   }
   return (
@@ -1339,7 +1340,7 @@ app.post("/g/:game/m/:match_id/turns/create", async (c: GamePlayContext) => {
   // queue task if an agent is next
   if (
     match_view.current_turn.status.status === "in_progress" &&
-    match_view.players[match_view.current_turn.status.active_players[0]]
+    match_view.players[match_view.current_turn.status.active_player]
         .kind === "agent"
   ) {
     await queueTask(c.get("kv"), { kind: "agent_turn", match_id });
