@@ -32,6 +32,7 @@ import {
 } from "./schema.ts";
 import { fetchUserByUsername } from "./users.ts";
 import { fetchAgentByUsernameAndAgentname } from "./agents.ts";
+import { queueTask } from "./tasks.ts";
 
 export function matchId(): MatchId {
   return `m_${Uuid25.fromBytes(uuidv7obj().bytes).value}` as MatchId;
@@ -470,6 +471,7 @@ export const takeMatchAgentTurn = traced(
 );
 export async function _takeMatchAgentTurn(
   db: GamePlayDB,
+  kv: Deno.Kv,
   match_id: MatchId,
 ): Promise<boolean | NotFound | NotAllowed | GameError> {
   // TODO: Make it so there can only be one active player, then all this logic gets easier.
@@ -638,6 +640,8 @@ export async function _takeMatchAgentTurn(
       state,
     }),
   ]);
+
+  await queueTask(kv, { kind: "agent_turn", match_id });
 
   return true;
 }

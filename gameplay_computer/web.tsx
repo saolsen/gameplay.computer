@@ -30,6 +30,7 @@ import {
   takeMatchUserTurn,
 } from "./matches.ts";
 import { traced } from "./tracing.ts";
+import { queueTask } from "./tasks.ts";
 
 export const CreateConnect4MatchFormData = z.object({
   game: z.literal("connect4"),
@@ -498,36 +499,6 @@ export const Connect4Match: FC<{
     </div>
   );
 };
-
-export const AgentTurnTask = z.object({
-  kind: z.literal("agent_turn"),
-  match_id: MatchId,
-});
-export type AgentTurnTask = z.infer<typeof AgentTurnTask>;
-const Task = z.discriminatedUnion("kind", [AgentTurnTask]);
-export type Task = z.infer<typeof Task>;
-
-export const processTask = traced("processTask", _processTask);
-async function _processTask(
-  db: GamePlayDB,
-  kv: Deno.Kv,
-  task: Task,
-): Promise<void> {
-  attribute("task", task.kind);
-  switch (task.kind) {
-    case "agent_turn": {
-      await takeMatchAgentTurn(db, task.match_id);
-      break;
-    }
-    default: {
-      throw new Unreachable(task.kind);
-    }
-  }
-}
-
-export async function queueTask(kv: Deno.Kv, task: Task): Promise<void> {
-  await kv.enqueue(task);
-}
 
 export function sleep(milliseconds = 3000) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -1190,8 +1161,6 @@ app.get("/g/:game/m/:match_id", async (c: GamePlayContext) => {
   if (match_view instanceof Error) {
     return c.notFound();
   }
-
-  await queueTask(c.get("kv"), { kind: "agent_turn", match_id });
 
   let inner_view;
 

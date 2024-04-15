@@ -8,7 +8,8 @@ import {
   tracingMiddleware,
 } from "./gameplay_computer/tracing.ts";
 import { GamePlayDB, schema } from "./gameplay_computer/schema.ts";
-import { app, GamePlayContext, processTask } from "./gameplay_computer/web.tsx";
+import { app, GamePlayContext } from "./gameplay_computer/web.tsx";
+import { processTask } from "./gameplay_computer/tasks.ts";
 
 const config = z
   .object({
