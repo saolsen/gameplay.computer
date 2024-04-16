@@ -50,23 +50,4 @@ kv.listenQueue(async (msg) => {
   await processTask(db, kv, msg);
 });
 
-// note: this always returns the current value first.
-//const stream = kv.watch([["match", "foo"]]);
-//for await (const event of stream) {
-//  console.log("watch", event);
-//}
-
 Deno.serve(configured_app.fetch);
-
-// So. If I'm going to run on deno deploy. I can still use turso but I can
-// also use some of the other stuff that's hella useful.
-// the queue to do background jobs.
-// kv to do pub/sub.
-// sse to live listen to the match updates.
-
-// Means things are no longer compatible with val.town but I think that is
-// ok.
-// having a queue lets me completely drop the lock crap.
-// using kv and sse gives a way better experience for the live updates.
-
-// there's still a good chance subhosting would be better than deno deploy.

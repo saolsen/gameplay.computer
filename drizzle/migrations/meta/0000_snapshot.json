@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "6a94fa85-6da7-4ff0-b2d2-7b93e9bfb4aa",
+  "id": "6170ea09-8731-437c-9ab0-6ce91de6c32e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "agents": {
@@ -110,51 +110,6 @@
             "user_id"
           ],
           "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
-    },
-    "match_locks": {
-      "name": "match_locks",
-      "columns": {
-        "match_id": {
-          "name": "match_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "value": {
-          "name": "value",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "timestamp": {
-          "name": "timestamp",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "CURRENT_TIMESTAMP"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "match_locks_match_id_matches_match_id_fk": {
-          "name": "match_locks_match_id_matches_match_id_fk",
-          "tableFrom": "match_locks",
-          "tableTo": "matches",
-          "columnsFrom": [
-            "match_id"
-          ],
-          "columnsTo": [
-            "match_id"
-          ],
-          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },

@@ -10,13 +10,6 @@ CREATE TABLE `agents` (
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`user_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `match_locks` (
-	`match_id` text PRIMARY KEY NOT NULL,
-	`value` text NOT NULL,
-	`timestamp` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	FOREIGN KEY (`match_id`) REFERENCES `matches`(`match_id`) ON UPDATE no action ON DELETE cascade
-);
---> statement-breakpoint
 CREATE TABLE `match_players` (
 	`match_id` text NOT NULL,
 	`player_number` integer NOT NULL,

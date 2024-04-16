@@ -1190,8 +1190,6 @@ app.get("/g/:game/m/:match_id/changes", (c: GamePlayContext) => {
     return c.redirect("/");
   }
 
-  // todo: authorize
-
   return streamSSE(c, async (stream) => {
     const changes = c.get("kv").watch<number[]>([["match_turn", match_id]]);
     for await (const [change] of changes) {
