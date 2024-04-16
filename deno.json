@@ -1,0 +1,20 @@
+{
+  "imports": {
+    "async_hooks": "node:async_hooks",
+    "@opentelemetry/api": "npm:@opentelemetry/api",
+    "@opentelemetry/exporter-trace-otlp-http": "npm:@opentelemetry/exporter-trace-otlp-http",
+    "@opentelemetry/propagator-b3": "npm:@opentelemetry/propagator-b3",
+    "@opentelemetry/resources": "npm:@opentelemetry/resources",
+    "@opentelemetry/sdk-trace-web": "npm:@opentelemetry/sdk-trace-web",
+    "@opentelemetry/semantic-conventions": "npm:@opentelemetry/semantic-conventions",
+    "@opentelemetry/context-async-hooks": "npm:@opentelemetry/context-async-hooks",
+    "zod": "npm:zod@3.22.4",
+    "hono": "npm:hono@4.2.2",
+    "jose": "npm:jose@5.2.3",
+    "uuid25": "npm:uuid25@0.1.4",
+    "uuidv7": "npm:uuidv7@0.6.3",
+    "@libsql/core": "npm:@libsql/core@0.6.0",
+    "@libsql/client": "npm:@libsql/client@0.6.0",
+    "drizzle-orm": "npm:drizzle-orm@0.30.7"
+  }
+}

@@ -1,12 +1,12 @@
-/** @jsxImportSource npm:hono@4.2.2/jsx */
-import { z } from "npm:zod@3.22.4";
-import { importSPKI, jwtVerify } from "npm:jose@5.2.3";
-import { Context, Hono } from "npm:hono@4.2.2";
+/** @jsxImportSource hono/jsx */
+import { z } from "zod";
+import { importSPKI, jwtVerify } from "jose";
+import { Context, Hono } from "hono";
 import { Child, FC } from "npm:hono@4.2.2/jsx";
-import { jsxRenderer, useRequestContext } from "npm:hono@4.2.2/jsx-renderer";
-import { html } from "npm:hono@4.2.2/html";
-import { getCookie } from "npm:hono@4.2.2/cookie";
-import { streamSSE } from "npm:hono@4.2.2/streaming";
+import { jsxRenderer, useRequestContext } from "hono/jsx-renderer";
+import { html } from "hono/html";
+import { getCookie } from "hono/cookie";
+import { streamSSE } from "hono/streaming";
 
 import { GameKind, Name, Player } from "../gameplay_game.ts";
 import { Connect4Action } from "../gameplay_connect4.ts";

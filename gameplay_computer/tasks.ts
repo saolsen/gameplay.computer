@@ -1,4 +1,5 @@
-import { z } from "npm:zod@3.22.4";
+import { z } from "zod";
+
 import { GamePlayDB, MatchId, Unreachable } from "./schema.ts";
 import { attribute, getPropB3, traced, tracer, traceTask } from "./tracing.ts";
 import { takeMatchAgentTurn } from "./matches.ts";

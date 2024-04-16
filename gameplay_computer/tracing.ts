@@ -1,5 +1,5 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import "node:async_hooks";
+import "async_hooks";
 import {
   context,
   propagation,
@@ -7,26 +7,26 @@ import {
   SpanStatusCode,
   trace as otelTrace,
   Tracer,
-} from "npm:@opentelemetry/api";
-import { OTLPTraceExporter } from "npm:@opentelemetry/exporter-trace-otlp-http";
-import { B3Propagator } from "npm:@opentelemetry/propagator-b3";
-import { Resource } from "npm:@opentelemetry/resources";
+} from "@opentelemetry/api";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { B3Propagator } from "@opentelemetry/propagator-b3";
+import { Resource } from "@opentelemetry/resources";
 import {
   BatchSpanProcessor,
   WebTracerProvider,
-} from "npm:@opentelemetry/sdk-trace-web";
-import { SEMRESATTRS_SERVICE_NAME } from "npm:@opentelemetry/semantic-conventions";
-import { AsyncLocalStorageContextManager } from "npm:@opentelemetry/context-async-hooks";
+} from "@opentelemetry/sdk-trace-web";
+import { SEMRESATTRS_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
+import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
 import {
   Config,
   InStatement,
   ResultSet,
   TransactionMode,
-} from "npm:@libsql/client@0.6.0";
-import { HttpClient } from "npm:@libsql/client@0.6.0/http";
-import { expandConfig } from "npm:@libsql/core@0.6.0/config";
-import { encodeBaseUrl } from "npm:@libsql/core@0.6.0/uri";
-import { MiddlewareHandler } from "npm:hono@4.2.2";
+} from "@libsql/client";
+import { HttpClient } from "@libsql/client/http";
+import { expandConfig } from "@libsql/core/config";
+import { encodeBaseUrl } from "@libsql/core/uri";
+import { MiddlewareHandler } from "hono";
 
 export function tracer(): Tracer {
   return otelTrace.getTracer("gameplay");

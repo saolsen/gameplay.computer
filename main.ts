@@ -1,6 +1,6 @@
-import { z } from "npm:zod@3.22.4";
-import { drizzle } from "npm:drizzle-orm@0.30.7/libsql";
-import { Hono } from "npm:hono@4.2.2";
+import { z } from "zod";
+import { drizzle } from "drizzle-orm/libsql";
+import { Hono } from "hono";
 
 import {
   setupTracing,

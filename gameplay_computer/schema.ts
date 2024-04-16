@@ -1,5 +1,5 @@
-import { z } from "npm:zod@3.22.4";
-import { sql } from "npm:drizzle-orm@0.30.7";
+import { z } from "zod";
+import { sql } from "drizzle-orm";
 import {
   index,
   integer,
@@ -7,8 +7,8 @@ import {
   sqliteTable,
   text,
   uniqueIndex,
-} from "npm:drizzle-orm@0.30.7/sqlite-core";
-import { LibSQLDatabase } from "npm:drizzle-orm@0.30.7/libsql";
+} from "drizzle-orm/sqlite-core";
+import { LibSQLDatabase } from "drizzle-orm/libsql";
 
 import {
   GameKind,
