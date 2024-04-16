@@ -1,8 +1,0 @@
-.vscode
-agents
-drizzle
-.dockerignore
-.envrc
-.gitignore
-Dockerfile
-fly.toml

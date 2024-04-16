@@ -11,7 +11,6 @@ let count = 0;
 
 function rand_action(state: Connect4State): Connect4Action {
   count++;
-  console.log(count);
   if (count > 3) {
     throw new Error("I give up");
   }
