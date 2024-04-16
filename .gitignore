@@ -1,2 +1,4 @@
+node_modules
 .envrc
-drizzle/node_modules
+deno.lock
+package-lock.json
