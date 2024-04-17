@@ -1,7 +1,7 @@
-import { z } from "npm:zod@3.22.4";
-import { Uuid25 } from "npm:uuid25@0.1.4";
-import { uuidv7obj } from "npm:uuidv7@0.6.3";
-import { and, eq } from "npm:drizzle-orm@0.30.7";
+import { z } from "zod";
+import { Uuid25 } from "uuid25";
+import { uuidv7obj } from "uuidv7";
+import { and, eq } from "drizzle-orm";
 
 import { GameKind, Name } from "../gameplay_game.ts";
 

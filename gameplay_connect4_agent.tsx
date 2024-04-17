@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono } from "npm:hono@4.2.2";
 
 import {
   Connect4Agent,
