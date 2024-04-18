@@ -34,6 +34,7 @@ import {
 } from "./schema.ts";
 import { fetchUserByUsername } from "./users.ts";
 import { fetchAgentByUsernameAndAgentname } from "./agents.ts";
+import { Poker, PokerAction, PokerState } from "../gameplay_poker.ts";
 
 export function matchId(): MatchId {
   return `m_${Uuid25.fromBytes(uuidv7obj().bytes).value}` as MatchId;
@@ -45,7 +46,16 @@ export const NewConnect4Action = z.object({
 });
 export type NewConnect4Action = z.infer<typeof NewConnect4Action>;
 
-export const NewAction = z.discriminatedUnion("game", [NewConnect4Action]);
+export const NewPokerAction = z.object({
+  game: z.literal("poker"),
+  action: PokerAction,
+});
+export type NewPokerAction = z.infer<typeof NewPokerAction>;
+
+export const NewAction = z.discriminatedUnion("game", [
+  NewConnect4Action,
+  NewPokerAction,
+]);
 export type NewAction = z.infer<typeof NewAction>;
 
 export const Connect4Turn = z.object({
@@ -72,7 +82,34 @@ export const Connect4MatchView = z.object({
 });
 export type Connect4MatchView = z.infer<typeof Connect4MatchView>;
 
-export const MatchView = z.discriminatedUnion("game", [Connect4MatchView]);
+export const PokerTurn = z.object({
+  turn_number: z.number(),
+  player_number: z.number().nullable(),
+  action: PokerAction.nullable(),
+});
+export type PokerTurn = z.infer<typeof PokerTurn>;
+
+export const PokerCurrentTurn = z.object({
+  turn_number: z.number(),
+  status: Status,
+  state: PokerState,
+});
+export type PokerCurrentTurn = z.infer<typeof PokerCurrentTurn>;
+
+export const PokerMatchView = z.object({
+  match_id: MatchId,
+  game: z.literal("poker"),
+  turn_number: z.number(),
+  players: z.array(Player),
+  turns: z.array(PokerTurn),
+  current_turn: PokerCurrentTurn,
+});
+export type PokerMatchView = z.infer<typeof PokerMatchView>;
+
+export const MatchView = z.discriminatedUnion("game", [
+  Connect4MatchView,
+  PokerMatchView,
+]);
 export type MatchView = z.infer<typeof MatchView>;
 
 export const fetchMatchById = traced(
@@ -158,7 +195,7 @@ async function _fetchMatchById(
     case "connect4": {
       return {
         match_id: match.match_id,
-        game: match.game,
+        game: "connect4",
         turn_number: match.turn_number,
         players: players.map((player) => {
           switch (player.player_kind) {
@@ -189,6 +226,43 @@ async function _fetchMatchById(
           turn_number: current_turn.turn_number,
           status: current_turn.status as Status,
           state: current_turn.state as Connect4State,
+        },
+      };
+    }
+    case "poker": {
+      return {
+        match_id: match.match_id,
+        game: "poker",
+        turn_number: match.turn_number,
+        players: players.map((player) => {
+          switch (player.player_kind) {
+            case "user": {
+              return {
+                kind: "user",
+                username: player.username!,
+              };
+            }
+            case "agent": {
+              return {
+                kind: "agent",
+                username: player.agent_username!,
+                agentname: player.agentname!,
+              };
+            }
+            default: {
+              throw new Unreachable(player.player_kind);
+            }
+          }
+        }),
+        turns: turns.map((turn) => ({
+          turn_number: turn.turn_number,
+          player_number: turn.player_number,
+          action: turn.action as PokerAction | null,
+        })),
+        current_turn: {
+          turn_number: current_turn.turn_number,
+          status: current_turn.status as Status,
+          state: current_turn.state as PokerState,
         },
       };
     }
@@ -337,6 +411,20 @@ async function _createMatch(
       }
       break;
     }
+    case "poker": {
+      state = Poker.newGame({ players });
+      if (state instanceof GameError) {
+        return state;
+      }
+      status = Poker.checkStatus(state);
+      if (status instanceof GameError) {
+        return status;
+      }
+      if (status.status !== "in_progress") {
+        return new GameError("state", "New game is not in progress.");
+      }
+      break;
+    }
     default: {
       throw new Unreachable(game);
     }
@@ -420,9 +508,9 @@ export async function _takeMatchUserTurn(
       const action_check = trace(
         "Connect4.checkAction",
         Connect4.checkAction,
-        state,
+        state as Connect4State,
         player_i,
-        action.action,
+        action.action as Connect4Action,
       );
       if (action_check instanceof GameError) {
         return action_check;
@@ -430,9 +518,32 @@ export async function _takeMatchUserTurn(
       new_status = trace(
         "Connect4.applyAction",
         Connect4.applyAction,
-        state,
+        state as Connect4State,
         player_i,
-        action.action,
+        action.action as Connect4Action,
+      );
+      if (new_status instanceof GameError) {
+        return new_status;
+      }
+      break;
+    }
+    case "poker": {
+      const action_check = trace(
+        "Poker.checkAction",
+        Poker.checkAction,
+        state as PokerState,
+        player_i,
+        action.action as PokerAction,
+      );
+      if (action_check instanceof GameError) {
+        return action_check;
+      }
+      new_status = trace(
+        "Poker.applyAction",
+        Poker.applyAction,
+        state as PokerState,
+        player_i,
+        action.action as PokerAction,
       );
       if (new_status instanceof GameError) {
         return new_status;
@@ -440,7 +551,7 @@ export async function _takeMatchUserTurn(
       break;
     }
     default: {
-      throw new Unreachable(match_view.game);
+      throw new Unreachable(match_view);
     }
   }
 
@@ -581,7 +692,7 @@ export async function _takeMatchAgentTurn(
         const action_check = trace(
           "Connect4.checkAction",
           Connect4.checkAction,
-          state,
+          state as Connect4State,
           player_i,
           action.action,
         );
@@ -601,7 +712,65 @@ export async function _takeMatchAgentTurn(
         const new_s = trace(
           "Connect4.applyAction",
           Connect4.applyAction,
-          state,
+          state as Connect4State,
+          player_i,
+          action.action,
+        );
+        if (new_s instanceof GameError) {
+          // note: this shouldn't happen since we checked it above.
+          new_status = {
+            status: "over",
+            result: {
+              kind: "errored",
+              reason: `Unexpected Error applying action ${new_s.message}`,
+            },
+          };
+        } else {
+          new_status = new_s;
+        }
+        break;
+      }
+      case "poker": {
+        const check_action = PokerAction.safeParse(response.json);
+        if (!check_action.success) {
+          new_status = {
+            status: "over",
+            result: {
+              kind: "errored",
+              reason: `Agent '${agent.slug}' returned invalid action ${
+                JSON.stringify(response.json)
+              }`,
+            },
+          };
+          break;
+        }
+
+        action = { game: "poker", action: check_action.data };
+
+        const action_check = trace(
+          "Poker.checkAction",
+          Poker.checkAction,
+          state as PokerState,
+          player_i,
+          action.action,
+        );
+        if (action_check instanceof GameError) {
+          new_status = {
+            status: "over",
+            result: {
+              kind: "errored",
+              reason: `Agent '${agent.slug}' returned illegal action ${
+                JSON.stringify(response)
+              }`,
+            },
+          };
+          break;
+        }
+
+        const new_s = trace(
+          "Poker.applyAction",
+          Poker.applyAction,
+          state as PokerState,
           player_i,
           action.action,
         );
@@ -620,7 +789,7 @@ export async function _takeMatchAgentTurn(
         break;
       }
       default: {
-        throw new Unreachable(match_view.game);
+        throw new Unreachable(match_view);
       }
     }
   }

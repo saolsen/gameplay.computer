@@ -22,7 +22,7 @@ export const Name = z
   .max(64)
   .transform((n) => n as Name);
 
-export const GameKind = z.enum(["connect4"]);
+export const GameKind = z.enum(["connect4", "poker"]);
 export type GameKind = z.infer<typeof GameKind>;
 
 export const PlayerKind = z.enum(["user", "agent"]);
