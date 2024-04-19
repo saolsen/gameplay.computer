@@ -10,7 +10,7 @@ import { streamSSE } from "hono/streaming";
 
 import { GameKind, Name, Player } from "../gameplay_game.ts";
 import { Connect4Action } from "../gameplay_connect4.ts";
-import { PokerAction } from "../gameplay_poker.ts";
+import { cardToString, PokerAction } from "../gameplay_poker.ts";
 
 import { GamePlayDB, MatchId, SelectUser, Unreachable, Url } from "./schema.ts";
 import { ClerkUser, syncClerkUser } from "./users.ts";
@@ -889,15 +889,136 @@ export const PokerMatch: FC<{
     }
   }
 
+  const state = poker_match.current_turn.state;
+  const round = state.rounds[state.round];
+  const current_player = poker_match.players[state.next_player];
+
   return (
-    <div class="container flex flex-row flex-wrap">
-      <div class="basis-1/2">
-        <h2 class="text-4xl">Poker Game Header</h2>
-        <div class="grid place-content-center">
-          <span>poker game svg or whatever else</span>
+    <div class="container flex flex-wrap">
+      <div>
+        <h2 class="text-4xl">Poker</h2>
+        <div class="grid grid-cols-2">
+          <span class="text-xl">
+            Stage: {round.stage[0].toUpperCase() + round.stage.slice(1)}
+          </span>
+
+          <span class="text-xl">
+            Pot: {round.pot}
+          </span>
+        </div>
+
+        <h4 class="text-l">
+          {current_player.kind === "agent"
+            ? current_player.username + "/" + current_player.agentname
+            : current_player.username}'s turn
+        </h4>
+        <span>Table Cards</span>
+        <div class="grid grid-cols-5">
+          {round.table_cards.map((card) => <span>{cardToString(card)}</span>)}
+        </div>
+        <span>Players</span>
+        <div
+          class={`grid grid-cols-${state.players.length}`}
+        >
+          {state.players.map((p, i) => {
+            const player = poker_match.players[i];
+            return (
+              <div class="flex flex-col">
+                <div class="grid grid-cols-2">
+                  <span>
+                    {player.kind === "agent"
+                      ? player.username +
+                        player.agentname
+                      : player.username}
+                    {round.dealer === i ? "[dealer] " : ""}
+                  </span>
+                  <span>bet: {round.player_bets[i]}</span>
+                </div>
+                <div class="grid grid-cols-2">
+                  <span>{cardToString(round.player_cards[i][0])}</span>
+                  <span>{cardToString(round.player_cards[i][1])}</span>
+                </div>
+                <span>chips: {p.chips}</span>
+                <span>status: {p.status}</span>
+                {i === state.next_player && (
+                  <div>
+                    <button
+                      class="btn"
+                      hx-post={`/g/poker/m/${poker_match.match_id}/turns/create`}
+                      hx-target="#match"
+                      hx-vals={JSON.stringify({ action: "fold" })}
+                    >
+                      Fold
+                    </button>
+                    {round.bet === round.player_bets[i] && (
+                      <button
+                        class="btn"
+                        hx-post={`/g/poker/m/${poker_match.match_id}/turns/create`}
+                        hx-target="#match"
+                        hx-vals={JSON.stringify({ action: "check" })}
+                      >
+                        Check
+                      </button>
+                    )}
+                    {round.bet > round.player_bets[i] && (
+                      <button
+                        class="btn"
+                        hx-post={`/g/poker/m/${poker_match.match_id}/turns/create`}
+                        hx-target="#match"
+                        hx-vals={JSON.stringify({
+                          action: "call",
+                          amount: round.bet,
+                        })}
+                      >
+                        Call
+                      </button>
+                    )}
+                    {round.bet > 0 && (
+                      <form
+                        hx-post={`/g/poker/m/${poker_match.match_id}/turns/create`}
+                        hx-target="#match"
+                        hx-vals={JSON.stringify({ action: "raise" })}
+                      >
+                        <input
+                          class="input"
+                          type="number"
+                          name="amount"
+                          value={round.bet + 1}
+                          min={round.bet + 1}
+                          max={p.chips}
+                        />
+                        <button class="btn" type="submit">
+                          Raise
+                        </button>
+                      </form>
+                    )}
+                    {round.bet === 0 && (
+                      <form
+                        hx-post={`/g/poker/m/${poker_match.match_id}/turns/create`}
+                        hx-target="#match"
+                        hx-vals={JSON.stringify({ action: "bet" })}
+                      >
+                        <input
+                          class="input"
+                          type="number"
+                          name="amount"
+                          value={1}
+                          min={1}
+                          max={p.chips}
+                        />
+                        <button class="btn" type="submit">
+                          Bet
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
-      <div class="basis-1/2">
+      <div>
         <div>
           <h2 class="text-3xl">Turns</h2>
           <Table

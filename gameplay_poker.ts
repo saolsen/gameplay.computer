@@ -344,6 +344,7 @@ export const Round = z.object({
   dealer: z.number().nonnegative(),
   current_player: z.number().nonnegative(),
   player_status: z.array(z.enum(["active", "folded"])),
+  player_bets: z.array(z.number().nonnegative()),
   player_cards: z.array(z.tuple([Card, Card])),
 });
 export type Round = z.infer<typeof Round>;
@@ -369,6 +370,7 @@ export const RoundView = z.object({
   dealer: z.number().nonnegative(),
   current_player: z.number().nonnegative(),
   player_status: z.array(z.enum(["active", "folded"])),
+  player_bets: z.array(z.number().nonnegative()),
   my_cards: z.tuple([Card, Card]),
 });
 export type RoundView = z.infer<typeof RoundView>;
@@ -396,7 +398,7 @@ export const CheckAction = z.object({
 
 export const BetAction = z.object({
   action: z.literal("bet"),
-  amount: z.number().nonnegative(),
+  amount: z.coerce.number().nonnegative(),
 });
 
 export const CallAction = z.object({
@@ -405,7 +407,7 @@ export const CallAction = z.object({
 
 export const RaiseAction = z.object({
   action: z.literal("raise"),
-  amount: z.number().nonnegative(),
+  amount: z.coerce.number().nonnegative(),
 });
 
 export const PokerAction = z.discriminatedUnion("action", [
@@ -438,9 +440,13 @@ export function newGame(
     blinds: [1, 2],
     round: 0,
     rounds: [{
-      stage: "preflop",
+      stage: "flop",
       deck: [],
-      table_cards: [],
+      table_cards: [
+        { rank: "ace", suit: "spades" },
+        { rank: "ace", suit: "hearts" },
+        { rank: "ace", suit: "clubs" },
+      ],
       bet: 0,
       pot: 0,
       dealer: 0,
@@ -449,9 +455,10 @@ export function newGame(
         { length: players.length },
         (_) => "active",
       ),
+      player_bets: Array.from({ length: players.length }, () => 0),
       player_cards: Array.from({ length: players.length }, () => [
-        { rank: "ace", suit: "spades" },
-        { rank: "ace", suit: "hearts" },
+        { rank: "king", suit: "spades" },
+        { rank: "king", suit: "hearts" },
       ]),
     }],
   };
@@ -497,6 +504,7 @@ export function getView(
       dealer: round.dealer,
       current_player: round.current_player,
       player_status: round.player_status,
+      player_bets: round.player_bets,
       my_cards: round.player_cards[player],
     });
   }
