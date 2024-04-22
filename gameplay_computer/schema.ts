@@ -20,12 +20,6 @@ import {
 import { Connect4Action, Connect4State } from "../gameplay_connect4.ts";
 import { PokerAction, PokerState } from "../gameplay_poker.ts";
 
-export class Unreachable extends Error {
-  constructor(x: never) {
-    super(`Unreachable: ${x}`);
-  }
-}
-
 export class Todo extends Error {
   constructor(message?: string) {
     super("Todo: " + message || "Not Implemented");

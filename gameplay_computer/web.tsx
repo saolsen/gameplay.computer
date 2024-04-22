@@ -8,11 +8,11 @@ import { html } from "hono/html";
 import { getCookie } from "hono/cookie";
 import { streamSSE } from "hono/streaming";
 
-import { GameKind, Name, Player } from "../gameplay_game.ts";
+import { GameKind, Name, Player, Unreachable } from "../gameplay_game.ts";
 import { Connect4Action } from "../gameplay_connect4.ts";
 import { cardToString, PokerAction } from "../gameplay_poker.ts";
 
-import { GamePlayDB, MatchId, SelectUser, Unreachable, Url } from "./schema.ts";
+import { GamePlayDB, MatchId, SelectUser, Url } from "./schema.ts";
 import { ClerkUser, syncClerkUser } from "./users.ts";
 import {
   createAgent,
@@ -821,107 +821,66 @@ export const PokerMatch: FC<{
   let player: Player | undefined;
   let player_i: number | undefined;
 
-  const current_turn: PokerCurrentTurn = poker_match.current_turn;
-  switch (current_turn.status.status) {
-    case "in_progress": {
-      player_i = current_turn.status.active_player;
-      player = poker_match.players[player_i];
-      if (player !== undefined) {
-        if (player_i === 0) {
-          header = (
-            <div>
-              <h2 class="text-4xl">Blue's turn</h2>
-              {player?.kind === "user" && player.username === user?.username
-                ? <span class="text-2xl">That's you!</span>
-                : (
-                  <span class="text-2xl">
-                    Waiting on {player.kind === "user"
-                      ? `User: ${player.username}`
-                      : `Agent: ${player.username}/${player.agentname}`}
-                  </span>
-                )}
-            </div>
-          );
-        } else {
-          header = (
-            <div>
-              <h2 class="text-4xl">Red's turn</h2>
-              {player?.kind === "user" && player.username === user?.username
-                ? <span class="text-2xl">That's you!</span>
-                : (
-                  <span class="text-2xl">
-                    Waiting on {player.kind === "user"
-                      ? `User: ${player.username}`
-                      : `Agent: ${player.username}/${player.agentname}`}
-                  </span>
-                )}
-            </div>
-          );
-        }
-      }
-      break;
-    }
-    case "over": {
-      header = (
-        <div>
-          <h2 class="text-4xl">Game Over</h2>
-          {current_turn.status.result.kind === "winner" &&
-              current_turn.status.result.players[0] === 0
-            ? <span class="text-2xl">Blue wins!</span>
-            : current_turn.status.result.kind === "winner" &&
-                current_turn.status.result.players[0] === 1
-            ? <span class="text-2xl">Red wins!</span>
-            : current_turn.status.result.kind === "draw"
-            ? <span class="text-2xl">It's a draw!</span>
-            : current_turn.status.result.kind === "errored"
-            ? (
-              <span class="text-2xl">
-                Error: {current_turn.status.result.reason}
-              </span>
-            )
-            : <span class="text-2xl">Error</span>}
-        </div>
-      );
-      break;
-    }
-    default: {
-      throw new Unreachable(current_turn.status);
-    }
-  }
-
+  const players = poker_match.players;
   const state = poker_match.current_turn.state;
   const round = state.rounds[state.round];
-  const current_player = poker_match.players[state.next_player];
+  const current_player = poker_match.players[round.current_player];
 
   return (
     <div class="container flex flex-wrap">
       <div>
         <h2 class="text-4xl">Poker</h2>
-        <div class="grid grid-cols-2">
-          <span class="text-xl">
-            Stage: {round.stage[0].toUpperCase() + round.stage.slice(1)}
-          </span>
 
-          <span class="text-xl">
-            Pot: {round.pot}
-          </span>
-        </div>
-
-        <h4 class="text-l">
-          {current_player.kind === "agent"
-            ? current_player.username + "/" + current_player.agentname
-            : current_player.username}'s turn
-        </h4>
+        {poker_match.current_turn.status.status === "over"
+          ? (
+            <div>
+              <h2 class="text-xl">Game Over</h2>
+              {poker_match.current_turn.status.result.kind === "winner"
+                ? (
+                  <h4 class="text-l">
+                    Player {poker_match.current_turn.status.result.players[0]}
+                    {" "}
+                    Wins
+                  </h4>
+                )
+                : poker_match.current_turn.status.result.kind === "draw"
+                ? <h4 class="text-l">Draw</h4>
+                : (
+                  <h4 class="text-l">
+                    Error: {poker_match.current_turn.status.result.reason}
+                  </h4>
+                )}
+            </div>
+          )
+          : (
+            <div>
+              <div class="grid grid-cols-2">
+                <span class="text-xl">
+                  Round {state.round}:{" "}
+                  {round.stage[0].toUpperCase() + round.stage.slice(1)}
+                </span>
+                <span class="text-xl">
+                  Pot: {round.pot}
+                </span>
+              </div>
+              {current_player !== undefined && (
+                <h4 class="text-l">
+                  {current_player.kind === "agent"
+                    ? current_player.username + "/" + current_player.agentname
+                    : current_player.username}'s turn
+                </h4>
+              )}
+            </div>
+          )}
         <span>Table Cards</span>
         <div class="grid grid-cols-5">
           {round.table_cards.map((card) => <span>{cardToString(card)}</span>)}
         </div>
         <span>Players</span>
         <div
-          class={`grid grid-cols-${state.players.length}`}
+          class={`grid grid-cols-${players.length}`}
         >
-          {state.players.map((p, i) => {
-            const player = poker_match.players[i];
+          {players.map((player, i) => {
             return (
               <div class="flex flex-col">
                 <div class="grid grid-cols-2">
@@ -938,9 +897,9 @@ export const PokerMatch: FC<{
                   <span>{cardToString(round.player_cards[i][0])}</span>
                   <span>{cardToString(round.player_cards[i][1])}</span>
                 </div>
-                <span>chips: {p.chips}</span>
-                <span>status: {p.status}</span>
-                {i === state.next_player && (
+                <span>chips: {state.player_chips[i]}</span>
+                <span>status: {round.player_status[i]}</span>
+                {i === round.current_player && (
                   <div>
                     <button
                       class="btn"
@@ -967,31 +926,41 @@ export const PokerMatch: FC<{
                         hx-target="#match"
                         hx-vals={JSON.stringify({
                           action: "call",
-                          amount: round.bet,
+                          amount: Math.min(
+                            round.bet - round.player_bets[i],
+                            state.player_chips[i],
+                          ),
                         })}
                       >
-                        Call
+                        {round.bet - round.player_bets[i] >
+                            state.player_chips[i]
+                          ? "All in"
+                          : "Call"}
                       </button>
                     )}
-                    {round.bet > 0 && (
-                      <form
-                        hx-post={`/g/poker/m/${poker_match.match_id}/turns/create`}
-                        hx-target="#match"
-                        hx-vals={JSON.stringify({ action: "raise" })}
-                      >
-                        <input
-                          class="input"
-                          type="number"
-                          name="amount"
-                          value={round.bet + 1}
-                          min={round.bet + 1}
-                          max={p.chips}
-                        />
-                        <button class="btn" type="submit">
-                          Raise
-                        </button>
-                      </form>
-                    )}
+                    {round.bet > 0 &&
+                      (round.bet - round.player_bets[i]) <
+                        state.player_chips[i] &&
+                      (
+                        <form
+                          hx-post={`/g/poker/m/${poker_match.match_id}/turns/create`}
+                          hx-target="#match"
+                          hx-vals={JSON.stringify({ action: "raise" })}
+                        >
+                          <input
+                            class="input"
+                            type="number"
+                            name="amount"
+                            value={1}
+                            min={1}
+                            max={state.player_chips[i] -
+                              (round.bet - round.player_bets[i])}
+                          />
+                          <button class="btn" type="submit">
+                            Raise
+                          </button>
+                        </form>
+                      )}
                     {round.bet === 0 && (
                       <form
                         hx-post={`/g/poker/m/${poker_match.match_id}/turns/create`}
@@ -1004,7 +973,7 @@ export const PokerMatch: FC<{
                           name="amount"
                           value={1}
                           min={1}
-                          max={p.chips}
+                          max={state.player_chips[i]}
                         />
                         <button class="btn" type="submit">
                           Bet

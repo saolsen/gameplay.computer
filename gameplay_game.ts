@@ -1,5 +1,11 @@
 import { z } from "npm:zod@3.22.4";
 
+export class Unreachable extends Error {
+  constructor(x: never) {
+    super(`Unreachable: ${x}`);
+  }
+}
+
 export type JsonLiteral = string | number | boolean | null;
 export type Json = JsonLiteral | { [key: string]: Json } | Json[];
 
@@ -100,11 +106,13 @@ export class GameError extends Error {
   }
 }
 
-export type NewGame<A extends GameArgs, S extends Json, E extends GameError> = (
+export type NewGame<
+  A extends GameArgs,
+  STATE extends Json,
+  E extends GameError,
+> = (
   create_args: A,
-) => S | E;
-
-export type CheckStatus<S, E extends GameError> = (state: S) => Status | E;
+) => [STATE, Status] | E;
 
 // Returns null if the action is allowed, or an error
 // about why it is not allowed.
@@ -134,7 +142,6 @@ export type Game<
 > = {
   kind: GameKind;
   newGame: NewGame<ARGS, STATE, E>;
-  checkStatus: CheckStatus<STATE, E>;
   checkAction: CheckAction<STATE, ACTION, E>;
   applyAction: ApplyAction<STATE, ACTION, E>;
   getView: GetView<STATE, VIEW, E>;

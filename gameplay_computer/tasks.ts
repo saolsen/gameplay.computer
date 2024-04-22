@@ -1,6 +1,8 @@
 import { z } from "zod";
 
-import { GamePlayDB, MatchId, Unreachable } from "./schema.ts";
+import { Unreachable } from "../gameplay_game.ts";
+
+import { GamePlayDB, MatchId } from "./schema.ts";
 import { attribute, getPropB3, traceTask } from "./tracing.ts";
 import { takeMatchAgentTurn } from "./matches.ts";
 

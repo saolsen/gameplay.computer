@@ -11,6 +11,7 @@ import {
   Player,
   PlayerKind,
   Status,
+  Unreachable,
 } from "../gameplay_game.ts";
 import {
   Connect4,
@@ -29,7 +30,6 @@ import {
   schema,
   SelectUser,
   Todo,
-  Unreachable,
   UserId,
 } from "./schema.ts";
 import { fetchUserByUsername } from "./users.ts";
@@ -398,28 +398,22 @@ async function _createMatch(
   let status;
   switch (game) {
     case "connect4": {
-      state = Connect4.newGame({ players });
-      if (state instanceof GameError) {
-        return state;
+      const result = Connect4.newGame({ players });
+      if (result instanceof GameError) {
+        return result;
       }
-      status = Connect4.checkStatus(state);
-      if (status instanceof GameError) {
-        return status;
-      }
+      [state, status] = result;
       if (status.status !== "in_progress") {
         return new GameError("state", "New game is not in progress.");
       }
       break;
     }
     case "poker": {
-      state = Poker.newGame({ players });
-      if (state instanceof GameError) {
-        return state;
+      const result = Poker.newGame({ players });
+      if (result instanceof GameError) {
+        return result;
       }
-      status = Poker.checkStatus(state);
-      if (status instanceof GameError) {
-        return status;
-      }
+      [state, status] = result;
       if (status.status !== "in_progress") {
         return new GameError("state", "New game is not in progress.");
       }

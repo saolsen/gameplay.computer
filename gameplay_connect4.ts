@@ -26,12 +26,14 @@ export type Connect4Args = {
   players: Player[];
 };
 
-export function newGame({ players }: Connect4Args): Connect4State | GameError {
+export function newGame(
+  { players }: Connect4Args,
+): [Connect4State, Status] | GameError {
   if (players.length !== 2) {
     return new GameError("args", "Connect4 requires exactly 2 players.");
   }
 
-  return {
+  return [{
     game: "connect4",
     next_player: 0,
     board: [
@@ -43,7 +45,7 @@ export function newGame({ players }: Connect4Args): Connect4State | GameError {
       [null, null, null, null, null, null],
       [null, null, null, null, null, null],
     ],
-  };
+  }, { status: "in_progress", active_player: 0 }];
 }
 
 export function get(state: Connect4State, col: number, row: number): Slot {
@@ -209,7 +211,6 @@ export const Connect4: Game<
 > = {
   kind: "connect4",
   newGame,
-  checkStatus,
   checkAction,
   applyAction,
   getView,
