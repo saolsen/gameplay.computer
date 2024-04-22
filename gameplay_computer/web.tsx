@@ -528,8 +528,11 @@ export const CreatePokerMatchFormData = z.object({
   "player_name[0]": z.string(),
   "player_type[1]": z.union([z.literal("me"), z.literal("agent")]),
   "player_name[1]": z.string(),
+  "player_type[2]": z.union([z.literal("me"), z.literal("agent")]),
+  "player_name[2]": z.string(),
   "player_error[0]": z.string().optional(),
   "player_error[1]": z.string().optional(),
+  "player_error[2]": z.string().optional(),
   form_error: z.string().optional(),
 });
 export type CreatePokerMatchFormData = z.infer<
@@ -558,13 +561,17 @@ export function validateCreatePokerMatchForm(
       player_type: data["player_type[1]"],
       player_name: data["player_name[1]"],
     },
+    {
+      player_type: data["player_type[2]"],
+      player_name: data["player_name[2]"],
+    },
   ];
 
   let error = false;
   const players: Player[] = [];
   const player_errors: string[] = ["", ""];
 
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 3; i++) {
     const player_type = player_inputs[i].player_type;
     const player_name = player_inputs[i].player_name;
     switch (player_type) {
@@ -635,6 +642,7 @@ export function validateCreatePokerMatchForm(
 
   data["player_error[0]"] = player_errors[0];
   data["player_error[1]"] = player_errors[1];
+  data["player_error[2]"] = player_errors[2];
 
   return { new_data: data, error, new_match: { players } };
 }
@@ -652,6 +660,8 @@ export const CreatePokerMatchForm: FC<{
       "player_name[0]": user.username,
       "player_type[1]": "me",
       "player_name[1]": user.username,
+      "player_type[2]": "me",
+      "player_name[2]": user.username,
     };
   }
 
@@ -664,11 +674,15 @@ export const CreatePokerMatchForm: FC<{
       type: create_poker_match["player_type[1]"],
       name: create_poker_match["player_name[1]"],
     },
+    {
+      type: create_poker_match["player_type[2]"],
+      name: create_poker_match["player_name[2]"],
+    },
   ];
 
   const player_inputs = [];
 
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 3; i++) {
     switch (players[i].type) {
       case "me": {
         player_inputs.push(
@@ -799,6 +813,44 @@ export const CreatePokerMatchForm: FC<{
           )}
         </div>
         <div>
+          <h3 class="text-3xl">Player 3</h3>
+          <div class="form-control">
+            <span class="label-text">Type</span>
+            <div class="join">
+              <input
+                class="join-item btn"
+                type="radio"
+                name="player_type[2]"
+                value="me"
+                aria-label="Me"
+                checked={create_poker_match["player_type[2]"] === "me"}
+                hx-get="/g/poker/m/create_match"
+                hx-include="#poker_create_match_form"
+                hx-target="#poker_create_match_form"
+                hx-swap="outerHTML"
+              />
+              <input
+                class="join-item btn"
+                type="radio"
+                name="player_type[2]"
+                value="agent"
+                aria-label="Agent"
+                checked={create_poker_match["player_type[2]"] === "agent"}
+                hx-get="/g/poker/m/create_match"
+                hx-include="#poker_create_match_form"
+                hx-target="#poker_create_match_form"
+                hx-swap="outerHTML"
+              />
+            </div>
+          </div>
+          {player_inputs[2]}
+          {create_poker_match["player_error[2]"] && (
+            <div class="alert alert-error" role="alert">
+              <span>{create_poker_match["player_error[2]"]}</span>
+            </div>
+          )}
+        </div>
+        <div>
           {create_poker_match.form_error && (
             <div class="alert alert-error join-item" role="alert">
               <span>{create_poker_match.form_error}</span>
@@ -874,7 +926,15 @@ export const PokerMatch: FC<{
           )}
         <span>Table Cards</span>
         <div class="grid grid-cols-5">
-          {round.table_cards.map((card) => <span>{cardToString(card)}</span>)}
+          {round.table_cards.map((card) => (
+            <div>
+              <div class="card w-55 bg-base-400 shadow-xl">
+                <div class="card-body items-center text-center">
+                  <p>{cardToString(card)}</p>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
         <span>Players</span>
         <div
@@ -898,8 +958,11 @@ export const PokerMatch: FC<{
                   <span>{cardToString(round.player_cards[i][1])}</span>
                 </div>
                 <span>chips: {state.player_chips[i]}</span>
-                <span>status: {round.player_status[i]}</span>
-                {i === round.current_player && (
+                {poker_match.current_turn.status.status === "in_progress" && (
+                  <span>status: {round.player_status[i]}</span>
+                )}
+                {poker_match.current_turn.status.status === "in_progress" &&
+                  i === round.current_player && (
                   <div>
                     <button
                       class="btn"

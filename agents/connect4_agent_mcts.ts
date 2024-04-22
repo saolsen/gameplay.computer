@@ -28,14 +28,13 @@ function score_action(
 
   // Create a new match with the action applied.
   const next_state = JSON.parse(JSON.stringify(current_state));
-  Connect4.applyAction(next_state, player, action);
+  let status = Connect4.applyAction(next_state, player, action);
 
   // Simulate random games from this state.
   let score = 0;
   for (let i = 0; i < SIMULATIONS; i++) {
     const sim_state = JSON.parse(JSON.stringify(next_state));
     // Play out the rest of the game randomly.
-    let status = Connect4.checkStatus(sim_state);
     if (status instanceof GameError) {
       throw status;
     }

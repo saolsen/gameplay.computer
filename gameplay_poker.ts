@@ -612,7 +612,7 @@ export function applyAction(
     }
     case "call": {
       const call_amount = round.bet - round.player_bets[player];
-      if (call_amount > state.player_chips[player]) {
+      if (call_amount >= state.player_chips[player]) {
         // all in
         round.player_bets[player] += state.player_chips[player];
         state.player_chips[player] = 0;
