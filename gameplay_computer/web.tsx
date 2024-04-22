@@ -996,7 +996,7 @@ export const PokerMatch: FC<{
               return [
                 <span>{turn.turn_number}</span>,
                 <span>
-                  {turn.player_number ? turn.player_number + 1 : ""}
+                  {turn.player_number !== null ? turn.player_number + 1 : ""}
                 </span>,
                 <span>{JSON.stringify(turn.action)}</span>,
               ];
