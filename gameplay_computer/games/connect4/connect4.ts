@@ -1,7 +1,7 @@
 import { z } from "npm:zod@3.22.4";
 
-import { type Game, GameError, Player, Status } from "./gameplay_game.ts";
-export { type Game, GameError, Player, Status } from "./gameplay_game.ts";
+import { type Game, GameError, Player, Status } from "../game.ts";
+export { type Game, GameError, Player, Status } from "../game.ts";
 
 export const COLS = 7;
 export const ROWS = 6;

@@ -16,9 +16,9 @@ import {
   PlayerKind,
   Status,
   StatusKind,
-} from "../gameplay_game.ts";
-import { Connect4Action, Connect4State } from "../gameplay_connect4.ts";
-import { PokerAction, PokerState } from "../gameplay_poker.ts";
+} from "./games/game.ts";
+import { Connect4Action, Connect4State } from "./games/connect4/connect4.ts";
+import { PokerAction, PokerState } from "./games/poker/poker.ts";
 
 export class Todo extends Error {
   constructor(message?: string) {

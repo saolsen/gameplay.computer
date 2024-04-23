@@ -4,7 +4,7 @@ import {
   Connect4Agent,
   Connect4AsyncAgent,
   Connect4State,
-} from "./gameplay_connect4.ts";
+} from "./gameplay_computer/games/connect4/connect4.ts";
 
 export function connect4Agent(agent: Connect4Agent | Connect4AsyncAgent) {
   const app = new Hono();
