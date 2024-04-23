@@ -975,18 +975,17 @@ app.get("/g/:game/m/create_match", async (c: GamePlayContext) => {
 
   const current_data = c.req.query();
 
+  const parsed_form = CreateMatchFormData.safeParse(current_data);
+  let form: CreateMatchFormData | undefined;
+  if (parsed_form.success) {
+    form = parsed_form.data;
+  }
+
+  const usernames: Name[] = [];
+  const agent_slugs = await findAgentsForGame(c.get("db"), game);
+
   switch (game) {
     case "connect4": {
-      // todo: move outside switch once poker uses this too.
-      const parsed_form = CreateMatchFormData.safeParse(current_data);
-      let form: CreateMatchFormData | undefined;
-      if (parsed_form.success) {
-        form = parsed_form.data;
-      }
-
-      const usernames: Name[] = [];
-      const agent_slugs = await findAgentsForGame(c.get("db"), game);
-
       return c.render(
         <CreateConnect4MatchForm
           user={user}
@@ -994,7 +993,7 @@ app.get("/g/:game/m/create_match", async (c: GamePlayContext) => {
           agent_slugs={agent_slugs}
           create_match={{
             values: form || {
-              game: "connect4",
+              game: game,
               players: [
                 { type: "me", name: user.username },
                 { type: "me", name: user.username },
@@ -1009,15 +1008,6 @@ app.get("/g/:game/m/create_match", async (c: GamePlayContext) => {
       );
     }
     case "poker": {
-      const parsed_form = CreateMatchFormData.safeParse(current_data);
-      let form: CreateMatchFormData | undefined;
-      if (parsed_form.success) {
-        form = parsed_form.data;
-      }
-
-      const usernames: Name[] = [];
-      const agent_slugs = await findAgentsForGame(c.get("db"), game);
-
       if (!form) {
         return c.render(
           <CreatePokerMatchForm
@@ -1026,7 +1016,7 @@ app.get("/g/:game/m/create_match", async (c: GamePlayContext) => {
             agent_slugs={agent_slugs}
             create_match={{
               values: {
-                game: "poker",
+                game: game,
                 players: [
                   { type: "me", name: user.username },
                   { type: "me", name: user.username },
@@ -1104,289 +1094,212 @@ app.post("/g/:game/m/create_match", async (c: GamePlayContext) => {
   const usernames: Name[] = [];
   const agent_slugs = await findAgentsForGame(c.get("db"), game);
 
-  let match_id;
-  let first_player_agent = false;
-  switch (game) {
-    case "connect4": {
-      const parsed_form = CreateMatchFormData.safeParse(current_data);
-      if (!parsed_form.success) {
-        return c.render(
-          <CreateConnect4MatchForm
-            user={user}
-            usernames={usernames}
-            agent_slugs={agent_slugs}
-            create_match={{
-              values: {
-                game: "connect4",
-                players: [
-                  { type: "me", name: user.username },
-                  { type: "me", name: user.username },
-                ],
-              },
-              errors: {
-                players: ["", ""],
-                form: "",
-              },
-            }}
-          />,
-        );
-      }
-      const form = parsed_form.data;
-      if (form.players.length !== 2) {
-        return c.render(
-          <CreateConnect4MatchForm
-            user={user}
-            usernames={usernames}
-            agent_slugs={agent_slugs}
-            create_match={{
-              values: form,
-              errors: {
-                players: ["", ""],
-                form: "Invalid number of players.",
-              },
-            }}
-          />,
-        );
-      }
+  let form: CreateMatchFormData;
+  const players: Player[] = [];
 
-      let error = false;
-      const player_errors: string[] = ["", ""];
+  let error = false;
+  const player_errors: string[] = ["", ""];
+  let form_error = "";
 
-      const players: Player[] = [];
-
-      for (let i = 0; i < form.players.length; i++) {
-        const player = form.players[i];
-        switch (player.type) {
-          case "me": {
-            // name must be the user's name.
-            const parsed_username = Name.safeParse(player.name);
-            if (!parsed_username.success) {
-              error = true;
-              player_errors[i] = "Invalid username.";
-              break;
-            }
-            const username = parsed_username.data;
-            if (username !== user.username) {
-              error = true;
-              player_errors[i] = "Invalid username.";
-              break;
-            }
-
-            players.push({
-              kind: "user",
-              username,
-            });
-            break;
-          }
-          case "agent": {
-            const parsed_slug = AgentSlug.safeParse(player.name);
-            if (!parsed_slug.success) {
-              error = true;
-              player_errors[i] = "Invalid agent name.";
-              break;
-            }
-            const slug = parsed_slug.data;
-
-            if (!agent_slugs.includes(slug)) {
-              error = true;
-              player_errors[i] = "Invalid agent name.";
-              break;
-            }
-
-            const [username, agentname] = slug.split("/") as [Name, Name];
-
-            players.push({
-              kind: "agent",
-              username,
-              agentname,
-            });
-            break;
-          }
-          default: {
-            throw new Unreachable(player.type);
-          }
+  validation: {
+    const parsed_form = CreateMatchFormData.safeParse(current_data);
+    if (parsed_form.success) {
+      form = parsed_form.data;
+    } else {
+      switch (game) {
+        case "connect4": {
+          form = {
+            game: game,
+            players: [
+              { type: "me", name: user.username },
+              { type: "me", name: user.username },
+            ],
+          };
+          break;
+        }
+        case "poker": {
+          form = {
+            game: game,
+            players: [
+              { type: "me", name: user.username as string },
+              { type: "me", name: user.username as string },
+            ],
+          };
+          break;
+        }
+        default: {
+          throw new Unreachable(game);
         }
       }
-
-      if (error) {
-        return c.render(
-          <CreateConnect4MatchForm
-            user={user}
-            usernames={usernames}
-            agent_slugs={agent_slugs}
-            create_match={{
-              values: form,
-              errors: {
-                players: player_errors,
-                form: "",
-              },
-            }}
-          />,
-        );
-      }
-
-      const new_match = await createMatch(
-        c.get("db"),
-        c.get("kv"),
-        user,
-        players,
-        game,
-      );
-      if (new_match instanceof Error) {
-        return c.render(
-          <CreateConnect4MatchForm
-            user={user}
-            usernames={usernames}
-            agent_slugs={agent_slugs}
-            create_match={{
-              values: form,
-              errors: {
-                players: player_errors,
-                form: new_match.message,
-              },
-            }}
-          />,
-        );
-      }
-
-      match_id = new_match.match_id;
-      first_player_agent = new_match.first_player_agent;
-      break;
+      error = true;
+      break validation;
     }
-    case "poker": {
-      const parsed_form = CreateMatchFormData.safeParse(current_data);
-      if (!parsed_form.success) {
-        return c.render(
-          <CreatePokerMatchForm
-            user={user}
-            usernames={usernames}
-            agent_slugs={agent_slugs}
-            create_match={{
-              values: {
-                game: "poker",
-                players: [
-                  { type: "me", name: user.username },
-                  { type: "me", name: user.username },
-                ],
-              },
-              errors: {
-                players: ["", ""],
-                form: "",
-              },
-            }}
-          />,
-        );
-      }
-      const form = parsed_form.data;
 
-      let error = false;
-      const player_errors: string[] = ["", ""];
-
-      const players: Player[] = [];
-
-      for (let i = 0; i < form.players.length; i++) {
-        const player = form.players[i];
-        switch (player.type) {
-          case "me": {
-            // name must be the user's name.
-            const parsed_username = Name.safeParse(player.name);
-            if (!parsed_username.success) {
-              error = true;
-              player_errors[i] = "Invalid username.";
-              break;
-            }
-            const username = parsed_username.data;
-            if (username !== user.username) {
-              error = true;
-              player_errors[i] = "Invalid username.";
-              break;
-            }
-
-            players.push({
-              kind: "user",
-              username,
-            });
+    // Validate Players
+    for (let i = 0; i < form.players.length; i++) {
+      const player = form.players[i];
+      switch (player.type) {
+        case "me": {
+          // name must be the user's name.
+          const parsed_username = Name.safeParse(player.name);
+          if (!parsed_username.success) {
+            error = true;
+            player_errors[i] = "Invalid username.";
             break;
           }
-          case "agent": {
-            const parsed_slug = AgentSlug.safeParse(player.name);
-            if (!parsed_slug.success) {
-              error = true;
-              player_errors[i] = "Invalid agent name.";
-              break;
-            }
-            const slug = parsed_slug.data;
-
-            if (!agent_slugs.includes(slug)) {
-              error = true;
-              player_errors[i] = "Invalid agent name.";
-              break;
-            }
-
-            const [username, agentname] = slug.split("/") as [Name, Name];
-
-            players.push({
-              kind: "agent",
-              username,
-              agentname,
-            });
+          const username = parsed_username.data;
+          if (username !== user.username) {
+            error = true;
+            player_errors[i] = "Invalid username.";
             break;
           }
-          default: {
-            throw new Unreachable(player.type);
+
+          players.push({
+            kind: "user",
+            username,
+          });
+          break;
+        }
+        case "agent": {
+          const parsed_slug = AgentSlug.safeParse(player.name);
+          if (!parsed_slug.success) {
+            error = true;
+            player_errors[i] = "Invalid agent name.";
+            break;
           }
+          const slug = parsed_slug.data;
+
+          if (!agent_slugs.includes(slug)) {
+            error = true;
+            player_errors[i] = "Invalid agent name.";
+            break;
+          }
+
+          const [username, agentname] = slug.split("/") as [Name, Name];
+
+          players.push({
+            kind: "agent",
+            username,
+            agentname,
+          });
+          break;
+        }
+        default: {
+          throw new Unreachable(player.type);
         }
       }
-
-      if (error) {
-        return c.render(
-          <CreatePokerMatchForm
-            user={user}
-            usernames={usernames}
-            agent_slugs={agent_slugs}
-            create_match={{
-              values: form,
-              errors: {
-                players: player_errors,
-                form: "",
-              },
-            }}
-          />,
-        );
-      }
-
-      const new_match = await createMatch(
-        c.get("db"),
-        c.get("kv"),
-        user,
-        players,
-        game,
-      );
-      if (new_match instanceof Error) {
-        return c.render(
-          <CreatePokerMatchForm
-            user={user}
-            usernames={usernames}
-            agent_slugs={agent_slugs}
-            create_match={{
-              values: form,
-              errors: {
-                players: player_errors,
-                form: new_match.message,
-              },
-            }}
-          />,
-        );
-      }
-
-      match_id = new_match.match_id;
-      first_player_agent = new_match.first_player_agent;
-      break;
     }
-    default: {
-      throw new Unreachable(game);
+
+    if (error) {
+      break validation;
+    }
+
+    // Game Specific Validation
+    switch (game) {
+      case "connect4": {
+        if (form.players.length !== 2) {
+          error = true;
+          form_error = "Invalid number of players.";
+        }
+        break;
+      }
+      case "poker": {
+        break;
+      }
+      default: {
+        throw new Unreachable(game);
+      }
     }
   }
+
+  if (error) {
+    switch (game) {
+      case "connect4": {
+        return c.render(
+          <CreateConnect4MatchForm
+            user={user}
+            usernames={usernames}
+            agent_slugs={agent_slugs}
+            create_match={{
+              values: form,
+              errors: {
+                players: player_errors,
+                form: form_error,
+              },
+            }}
+          />,
+        );
+      }
+      case "poker": {
+        return c.render(
+          <CreatePokerMatchForm
+            user={user}
+            usernames={usernames}
+            agent_slugs={agent_slugs}
+            create_match={{
+              values: form,
+              errors: {
+                players: player_errors,
+                form: form_error,
+              },
+            }}
+          />,
+        );
+      }
+      default: {
+        throw new Unreachable(game);
+      }
+    }
+  }
+
+  const new_match = await createMatch(
+    c.get("db"),
+    c.get("kv"),
+    user,
+    players,
+    game,
+  );
+  if (new_match instanceof Error) {
+    switch (game) {
+      case "connect4": {
+        return c.render(
+          <CreateConnect4MatchForm
+            user={user}
+            usernames={usernames}
+            agent_slugs={agent_slugs}
+            create_match={{
+              values: form,
+              errors: {
+                players: player_errors,
+                form: new_match.message,
+              },
+            }}
+          />,
+        );
+      }
+      case "poker": {
+        return c.render(
+          <CreatePokerMatchForm
+            user={user}
+            usernames={usernames}
+            agent_slugs={agent_slugs}
+            create_match={{
+              values: form,
+              errors: {
+                players: player_errors,
+                form: new_match.message,
+              },
+            }}
+          />,
+        );
+      }
+      default: {
+        throw new Unreachable(game);
+      }
+    }
+  }
+
+  const { match_id, first_player_agent } = new_match;
 
   if (first_player_agent) {
     await queueTask(c.get("kv"), {
