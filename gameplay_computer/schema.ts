@@ -18,12 +18,7 @@ import {
   StatusKind,
 } from "../gameplay_game.ts";
 import { Connect4Action, Connect4State } from "../gameplay_connect4.ts";
-
-export class Unreachable extends Error {
-  constructor(x: never) {
-    super(`Unreachable: ${x}`);
-  }
-}
+import { PokerAction, PokerState } from "../gameplay_poker.ts";
 
 export class Todo extends Error {
   constructor(message?: string) {
@@ -85,10 +80,11 @@ export const AgentId = z
 
 export const Action = z.discriminatedUnion("game", [
   z.object({ game: z.literal("connect4"), action: Connect4Action }),
+  z.object({ game: z.literal("poker"), action: PokerAction }),
 ]);
 export type Action = z.infer<typeof Action>;
 
-export const State = z.discriminatedUnion("game", [Connect4State]);
+export const State = z.discriminatedUnion("game", [Connect4State, PokerState]);
 export type State = z.infer<typeof State>;
 
 export const AgentStatusKind = z.enum(["active", "inactive"]);

@@ -8,10 +8,11 @@ import { html } from "hono/html";
 import { getCookie } from "hono/cookie";
 import { streamSSE } from "hono/streaming";
 
-import { GameKind, Name, Player } from "../gameplay_game.ts";
+import { GameKind, Name, Player, Unreachable } from "../gameplay_game.ts";
 import { Connect4Action } from "../gameplay_connect4.ts";
+import { cardToString, PokerAction } from "../gameplay_poker.ts";
 
-import { GamePlayDB, MatchId, SelectUser, Unreachable, Url } from "./schema.ts";
+import { GamePlayDB, MatchId, SelectUser, Url } from "./schema.ts";
 import { ClerkUser, syncClerkUser } from "./users.ts";
 import {
   createAgent,
@@ -26,6 +27,8 @@ import {
   fetchMatchById,
   findMatchesForGameAndUser,
   MatchView,
+  PokerCurrentTurn,
+  PokerMatchView,
   takeMatchUserTurn,
 } from "./matches.ts";
 import { queueTask } from "./tasks.ts";
@@ -519,6 +522,555 @@ export const Connect4Match: FC<{
   );
 };
 
+export const CreatePokerMatchFormData = z.object({
+  game: z.literal("poker"),
+  "player_type[0]": z.union([z.literal("me"), z.literal("agent")]),
+  "player_name[0]": z.string(),
+  "player_type[1]": z.union([z.literal("me"), z.literal("agent")]),
+  "player_name[1]": z.string(),
+  "player_type[2]": z.union([z.literal("me"), z.literal("agent")]),
+  "player_name[2]": z.string(),
+  "player_error[0]": z.string().optional(),
+  "player_error[1]": z.string().optional(),
+  "player_error[2]": z.string().optional(),
+  form_error: z.string().optional(),
+});
+export type CreatePokerMatchFormData = z.infer<
+  typeof CreatePokerMatchFormData
+>;
+
+// Todo: can probably do validation outside of the component now.
+export function validateCreatePokerMatchForm(
+  user: SelectUser,
+  usernames: string[], // usernames
+  agent_slugs: string[], // username/agentname
+  data: CreatePokerMatchFormData,
+): {
+  new_data: CreatePokerMatchFormData;
+  error: boolean;
+  new_match?: {
+    players: Player[];
+  };
+} {
+  const player_inputs = [
+    {
+      player_type: data["player_type[0]"],
+      player_name: data["player_name[0]"],
+    },
+    {
+      player_type: data["player_type[1]"],
+      player_name: data["player_name[1]"],
+    },
+    {
+      player_type: data["player_type[2]"],
+      player_name: data["player_name[2]"],
+    },
+  ];
+
+  let error = false;
+  const players: Player[] = [];
+  const player_errors: string[] = ["", ""];
+
+  for (let i = 0; i < 3; i++) {
+    const player_type = player_inputs[i].player_type;
+    const player_name = player_inputs[i].player_name;
+    switch (player_type) {
+      case "me": {
+        // name must be the user's name.
+        const parsed_username = Name.safeParse(player_name);
+        if (!parsed_username.success) {
+          error = true;
+          player_errors[i] = "Invalid username.";
+          break;
+        }
+        const username = parsed_username.data;
+        if (username !== user.username) {
+          error = true;
+          player_errors[i] = "Invalid username.";
+          break;
+        }
+
+        players.push({
+          kind: "user",
+          username,
+        });
+        break;
+      }
+      case "agent": {
+        if (!agent_slugs.includes(player_name)) {
+          error = true;
+          player_errors[i] = "Invalid agent name.";
+          break;
+        }
+
+        const split = player_name.split("/");
+        if (split.length !== 2) {
+          error = true;
+          player_errors[i] = "Invalid agent name.";
+          break;
+        }
+
+        const [username_s, agentname_s] = split;
+        const parsed_username = Name.safeParse(username_s);
+        if (!parsed_username.success) {
+          error = true;
+          player_errors[i] = "Invalid agent name.";
+          break;
+        }
+        const username = parsed_username.data;
+
+        const parsed_agentname = Name.safeParse(agentname_s);
+        if (!parsed_agentname.success) {
+          error = true;
+          player_errors[i] = "Invalid agent name.";
+          break;
+        }
+        const agentname = parsed_agentname.data;
+
+        players.push({
+          kind: "agent",
+          username,
+          agentname,
+        });
+        break;
+      }
+      default: {
+        throw new Unreachable(player_type);
+      }
+    }
+  }
+
+  data["player_error[0]"] = player_errors[0];
+  data["player_error[1]"] = player_errors[1];
+  data["player_error[2]"] = player_errors[2];
+
+  return { new_data: data, error, new_match: { players } };
+}
+
+export const CreatePokerMatchForm: FC<{
+  user: SelectUser;
+  usernames: string[]; // usernames
+  agent_slugs: string[]; // username/agentname
+  create_poker_match?: CreatePokerMatchFormData;
+}> = ({ user, usernames, agent_slugs, create_poker_match }) => {
+  if (!create_poker_match) {
+    create_poker_match = {
+      game: "poker",
+      "player_type[0]": "me",
+      "player_name[0]": user.username,
+      "player_type[1]": "me",
+      "player_name[1]": user.username,
+      "player_type[2]": "me",
+      "player_name[2]": user.username,
+    };
+  }
+
+  const players = [
+    {
+      type: create_poker_match["player_type[0]"],
+      name: create_poker_match["player_name[0]"],
+    },
+    {
+      type: create_poker_match["player_type[1]"],
+      name: create_poker_match["player_name[1]"],
+    },
+    {
+      type: create_poker_match["player_type[2]"],
+      name: create_poker_match["player_name[2]"],
+    },
+  ];
+
+  const player_inputs = [];
+
+  for (let i = 0; i < 3; i++) {
+    switch (players[i].type) {
+      case "me": {
+        player_inputs.push(
+          <input
+            type="hidden"
+            name={`player_name[${i}]`}
+            value={user.username}
+          />,
+        );
+        break;
+      }
+      case "agent": {
+        if (!agent_slugs.includes(players[i].name)) {
+          players[i].name = "";
+        }
+        player_inputs.push(
+          <label className="label">
+            <span class="label-text">Agent</span>
+            <select
+              className="select select-bordered w-full max-w-xs"
+              name={`player_name[${i}]`}
+              value={players[i].name}
+            >
+              <option disabled selected>
+                Select An Option
+              </option>
+              {agent_slugs.map((agent_slug) => (
+                <option
+                  value={agent_slug}
+                  selected={players[i].name === agent_slug}
+                >
+                  {agent_slug}
+                </option>
+              ))}
+            </select>
+          </label>,
+        );
+        break;
+      }
+    }
+  }
+
+  return (
+    <form
+      id="poker_create_match_form"
+      hx-post="/g/poker/m/create_match"
+      hx-target="this"
+      hx-swap="outerHTML"
+    >
+      <input type="hidden" name="game" value="poker" />
+
+      <div class="container">
+        <h2 class="text-4xl">Create Poker Match</h2>
+        <div>
+          <h3 class="text-3xl">Player 1</h3>
+          <div class="form-control">
+            <span class="label-text">Type</span>
+            <div class="join">
+              <input
+                class="join-item btn"
+                type="radio"
+                name="player_type[0]"
+                value="me"
+                aria-label="Me"
+                checked={create_poker_match["player_type[0]"] === "me"}
+                hx-get="/g/poker/m/create_match"
+                hx-include="#poker_create_match_form"
+                hx-target="#poker_create_match_form"
+                hx-swap="outerHTML"
+              />
+              <input
+                class="join-item btn"
+                type="radio"
+                name="player_type[0]"
+                value="agent"
+                aria-label="Agent"
+                checked={create_poker_match["player_type[0]"] === "agent"}
+                hx-get="/g/poker/m/create_match"
+                hx-include="#poker_create_match_form"
+                hx-target="#poker_create_match_form"
+                hx-swap="outerHTML"
+              />
+            </div>
+            {player_inputs[0]}
+            {create_poker_match["player_error[0]"] && (
+              <div class="alert alert-error" role="alert">
+                <span>{create_poker_match["player_error[0]"]}</span>
+              </div>
+            )}
+          </div>
+        </div>
+        <div>
+          <h3 class="text-3xl">Player 2</h3>
+          <div class="form-control">
+            <span class="label-text">Type</span>
+            <div class="join">
+              <input
+                class="join-item btn"
+                type="radio"
+                name="player_type[1]"
+                value="me"
+                aria-label="Me"
+                checked={create_poker_match["player_type[1]"] === "me"}
+                hx-get="/g/poker/m/create_match"
+                hx-include="#poker_create_match_form"
+                hx-target="#poker_create_match_form"
+                hx-swap="outerHTML"
+              />
+              <input
+                class="join-item btn"
+                type="radio"
+                name="player_type[1]"
+                value="agent"
+                aria-label="Agent"
+                checked={create_poker_match["player_type[1]"] === "agent"}
+                hx-get="/g/poker/m/create_match"
+                hx-include="#poker_create_match_form"
+                hx-target="#poker_create_match_form"
+                hx-swap="outerHTML"
+              />
+            </div>
+          </div>
+          {player_inputs[1]}
+          {create_poker_match["player_error[1]"] && (
+            <div class="alert alert-error" role="alert">
+              <span>{create_poker_match["player_error[1]"]}</span>
+            </div>
+          )}
+        </div>
+        <div>
+          <h3 class="text-3xl">Player 3</h3>
+          <div class="form-control">
+            <span class="label-text">Type</span>
+            <div class="join">
+              <input
+                class="join-item btn"
+                type="radio"
+                name="player_type[2]"
+                value="me"
+                aria-label="Me"
+                checked={create_poker_match["player_type[2]"] === "me"}
+                hx-get="/g/poker/m/create_match"
+                hx-include="#poker_create_match_form"
+                hx-target="#poker_create_match_form"
+                hx-swap="outerHTML"
+              />
+              <input
+                class="join-item btn"
+                type="radio"
+                name="player_type[2]"
+                value="agent"
+                aria-label="Agent"
+                checked={create_poker_match["player_type[2]"] === "agent"}
+                hx-get="/g/poker/m/create_match"
+                hx-include="#poker_create_match_form"
+                hx-target="#poker_create_match_form"
+                hx-swap="outerHTML"
+              />
+            </div>
+          </div>
+          {player_inputs[2]}
+          {create_poker_match["player_error[2]"] && (
+            <div class="alert alert-error" role="alert">
+              <span>{create_poker_match["player_error[2]"]}</span>
+            </div>
+          )}
+        </div>
+        <div>
+          {create_poker_match.form_error && (
+            <div class="alert alert-error join-item" role="alert">
+              <span>{create_poker_match.form_error}</span>
+            </div>
+          )}
+          <button class="btn btn-rounded-r-full" type="submit">
+            Create Match
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+};
+
+export const PokerMatch: FC<{
+  user: SelectUser | null;
+  poker_match: PokerMatchView;
+}> = ({ user, poker_match }) => {
+  let header;
+  let player: Player | undefined;
+  let player_i: number | undefined;
+
+  const players = poker_match.players;
+  const state = poker_match.current_turn.state;
+  const round = state.rounds[state.round];
+  const current_player = poker_match.players[round.current_player];
+
+  return (
+    <div class="container flex flex-wrap">
+      <div>
+        <h2 class="text-4xl">Poker</h2>
+
+        {poker_match.current_turn.status.status === "over"
+          ? (
+            <div>
+              <h2 class="text-xl">Game Over</h2>
+              {poker_match.current_turn.status.result.kind === "winner"
+                ? (
+                  <h4 class="text-l">
+                    Player {poker_match.current_turn.status.result.players[0]}
+                    {" "}
+                    Wins
+                  </h4>
+                )
+                : poker_match.current_turn.status.result.kind === "draw"
+                ? <h4 class="text-l">Draw</h4>
+                : (
+                  <h4 class="text-l">
+                    Error: {poker_match.current_turn.status.result.reason}
+                  </h4>
+                )}
+            </div>
+          )
+          : (
+            <div>
+              <div class="grid grid-cols-2">
+                <span class="text-xl">
+                  Round {state.round}:{" "}
+                  {round.stage[0].toUpperCase() + round.stage.slice(1)}
+                </span>
+                <span class="text-xl">
+                  Pot: {round.pot}
+                </span>
+              </div>
+              {current_player !== undefined && (
+                <h4 class="text-l">
+                  {current_player.kind === "agent"
+                    ? current_player.username + "/" + current_player.agentname
+                    : current_player.username}'s turn
+                </h4>
+              )}
+            </div>
+          )}
+        <span>Table Cards</span>
+        <div class="grid grid-cols-5">
+          {round.table_cards.map((card) => (
+            <div>
+              <div class="card w-55 bg-base-400 shadow-xl">
+                <div class="card-body items-center text-center">
+                  <p>{cardToString(card)}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <span>Players</span>
+        <div
+          class={`grid grid-cols-${players.length}`}
+        >
+          {players.map((player, i) => {
+            return (
+              <div class="flex flex-col">
+                <div class="grid grid-cols-2">
+                  <span>
+                    {player.kind === "agent"
+                      ? player.username +
+                        player.agentname
+                      : player.username}
+                    {round.dealer === i ? "[dealer] " : ""}
+                  </span>
+                  <span>bet: {round.player_bets[i]}</span>
+                </div>
+                <div class="grid grid-cols-2">
+                  <span>{cardToString(round.player_cards[i][0])}</span>
+                  <span>{cardToString(round.player_cards[i][1])}</span>
+                </div>
+                <span>chips: {state.player_chips[i]}</span>
+                {poker_match.current_turn.status.status === "in_progress" && (
+                  <span>status: {round.player_status[i]}</span>
+                )}
+                {poker_match.current_turn.status.status === "in_progress" &&
+                  i === round.current_player && (
+                  <div>
+                    <button
+                      class="btn"
+                      hx-post={`/g/poker/m/${poker_match.match_id}/turns/create`}
+                      hx-target="#match"
+                      hx-vals={JSON.stringify({ action: "fold" })}
+                    >
+                      Fold
+                    </button>
+                    {round.bet === round.player_bets[i] && (
+                      <button
+                        class="btn"
+                        hx-post={`/g/poker/m/${poker_match.match_id}/turns/create`}
+                        hx-target="#match"
+                        hx-vals={JSON.stringify({ action: "check" })}
+                      >
+                        Check
+                      </button>
+                    )}
+                    {round.bet > round.player_bets[i] && (
+                      <button
+                        class="btn"
+                        hx-post={`/g/poker/m/${poker_match.match_id}/turns/create`}
+                        hx-target="#match"
+                        hx-vals={JSON.stringify({
+                          action: "call",
+                          amount: Math.min(
+                            round.bet - round.player_bets[i],
+                            state.player_chips[i],
+                          ),
+                        })}
+                      >
+                        {round.bet - round.player_bets[i] >
+                            state.player_chips[i]
+                          ? "All in"
+                          : "Call"}
+                      </button>
+                    )}
+                    {round.bet > 0 &&
+                      (round.bet - round.player_bets[i]) <
+                        state.player_chips[i] &&
+                      (
+                        <form
+                          hx-post={`/g/poker/m/${poker_match.match_id}/turns/create`}
+                          hx-target="#match"
+                          hx-vals={JSON.stringify({ action: "raise" })}
+                        >
+                          <input
+                            class="input"
+                            type="number"
+                            name="amount"
+                            value={1}
+                            min={1}
+                            max={state.player_chips[i] -
+                              (round.bet - round.player_bets[i])}
+                          />
+                          <button class="btn" type="submit">
+                            Raise
+                          </button>
+                        </form>
+                      )}
+                    {round.bet === 0 && (
+                      <form
+                        hx-post={`/g/poker/m/${poker_match.match_id}/turns/create`}
+                        hx-target="#match"
+                        hx-vals={JSON.stringify({ action: "bet" })}
+                      >
+                        <input
+                          class="input"
+                          type="number"
+                          name="amount"
+                          value={1}
+                          min={1}
+                          max={state.player_chips[i]}
+                        />
+                        <button class="btn" type="submit">
+                          Bet
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div>
+        <div>
+          <h2 class="text-3xl">Turns</h2>
+          <Table
+            columns={["Turn", "Player", "Action"]}
+            rows={poker_match.turns.slice(1).map((turn) => {
+              return [
+                <span>{turn.turn_number}</span>,
+                <span>
+                  {turn.player_number !== null ? turn.player_number + 1 : ""}
+                </span>,
+                <span>{JSON.stringify(turn.action)}</span>,
+              ];
+            })}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export function sleep(milliseconds = 3000) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
@@ -793,11 +1345,6 @@ app.get("/", (c: GamePlayContext) => {
             Games
           </a>
         </p>
-        <p>
-          <a class="link" href="/g/connect4/m">
-            Matches
-          </a>
-        </p>
       </div>,
     );
   } else {
@@ -937,6 +1484,16 @@ app.get("/g/:game/m", async (c: GamePlayContext) => {
       );
       break;
     }
+    case "poker": {
+      form = (
+        <CreatePokerMatchForm
+          user={user}
+          usernames={usernames}
+          agent_slugs={agent_slugs}
+        />
+      );
+      break;
+    }
     default: {
       throw new Unreachable(game);
     }
@@ -1009,6 +1566,25 @@ app.get("/g/:game/m/create_match", async (c: GamePlayContext) => {
           usernames={usernames}
           agent_slugs={agent_slugs}
           create_connect4_match={form}
+        />,
+      );
+    }
+    case "poker": {
+      const parsed_form = CreatePokerMatchFormData.safeParse(current_data);
+      let form: CreatePokerMatchFormData | undefined;
+      if (parsed_form.success) {
+        form = parsed_form.data;
+      }
+
+      const usernames: Name[] = [];
+      const agent_slugs = await findAgentsForGame(c.get("db"), game);
+
+      return c.render(
+        <CreatePokerMatchForm
+          user={user}
+          usernames={usernames}
+          agent_slugs={agent_slugs}
+          create_poker_match={form}
         />,
       );
     }
@@ -1088,6 +1664,68 @@ app.post("/g/:game/m/create_match", async (c: GamePlayContext) => {
             usernames={usernames}
             agent_slugs={agent_slugs}
             create_connect4_match={new_data}
+          />,
+        );
+      }
+
+      match_id = new_match.match_id;
+      first_player_agent = new_match.first_player_agent;
+      break;
+    }
+    case "poker": {
+      const usernames: Name[] = [];
+      const agent_slugs = await findAgentsForGame(c.get("db"), game);
+
+      const parsed_form = CreatePokerMatchFormData.safeParse(current_data);
+      if (!parsed_form.success) {
+        return c.render(
+          <CreatePokerMatchForm
+            user={user}
+            usernames={usernames}
+            agent_slugs={agent_slugs}
+          />,
+        );
+      }
+      const form = parsed_form.data;
+
+      const {
+        new_data,
+        error,
+        new_match: new_match_spec,
+      } = validateCreatePokerMatchForm(
+        user,
+        usernames,
+        agent_slugs,
+        form,
+      );
+      if (error) {
+        return c.render(
+          <CreatePokerMatchForm
+            user={user}
+            usernames={usernames}
+            agent_slugs={agent_slugs}
+            create_poker_match={new_data}
+          />,
+        );
+      }
+
+      const { players } = new_match_spec!;
+      const new_match = await createMatch(
+        c.get("db"),
+        c.get("kv"),
+        user,
+        players,
+        "poker",
+      );
+      if (new_match instanceof Error) {
+        new_data.form_error = new_match.message;
+
+        return c.render(
+          <CreatePokerMatchForm
+            user={user}
+            usernames={usernames}
+            agent_slugs={agent_slugs}
+            create_poker_match={new_data}
           />,
         );
       }
@@ -1230,13 +1868,17 @@ app.get("/g/:game/m/:match_id", async (c: GamePlayContext) => {
 
   let inner_view;
 
-  switch (game) {
+  switch (match_view.game) {
     case "connect4": {
       inner_view = <Connect4Match user={user} connect4_match={match_view} />;
       break;
     }
+    case "poker": {
+      inner_view = <PokerMatch user={user} poker_match={match_view} />;
+      break;
+    }
     default: {
-      throw new Unreachable(game);
+      throw new Unreachable(match_view);
     }
   }
 
@@ -1253,7 +1895,10 @@ app.get("/g/:game/m/:match_id", async (c: GamePlayContext) => {
       <BreadCrumbs
         links={[
           { href: "/g", text: "Games" },
-          { href: `/g/${game}`, text: "Connect4" },
+          {
+            href: `/g/${game}`,
+            text: game.charAt(0).toUpperCase() + game.slice(1),
+          },
           { href: `/g/${game}/m`, text: "Matches" },
           { href: `/g/${game}/m/${match_id}`, text: match_id },
         ]}
@@ -1313,6 +1958,30 @@ app.post("/g/:game/m/:match_id/turns/create", async (c: GamePlayContext) => {
       }
       break;
     }
+    case "poker": {
+      const parsed_action = PokerAction.safeParse(data);
+      if (!parsed_action.success) {
+        return c.json(
+          { ok: false, error: parsed_action.error },
+          { status: 400 },
+        );
+      }
+      const action = parsed_action.data;
+      const result = await takeMatchUserTurn(
+        c.get("db"),
+        c.get("kv"),
+        user,
+        match_id,
+        {
+          game,
+          action,
+        },
+      );
+      if (result instanceof Error) {
+        return c.json({ ok: false, error: result }, { status: 400 });
+      }
+      break;
+    }
     default: {
       throw new Unreachable(game);
     }
@@ -1325,13 +1994,17 @@ app.post("/g/:game/m/:match_id/turns/create", async (c: GamePlayContext) => {
 
   let inner_view;
 
-  switch (game) {
+  switch (match_view.game) {
     case "connect4": {
       inner_view = <Connect4Match user={user} connect4_match={match_view} />;
       break;
     }
+    case "poker": {
+      inner_view = <PokerMatch user={user} poker_match={match_view} />;
+      break;
+    }
     default: {
-      throw new Unreachable(game);
+      throw new Unreachable(match_view);
     }
   }
 
@@ -1363,7 +2036,7 @@ type CreateAgentFormDetails = {
   };
 };
 
-export const CreateConnect4AgentForm: FC<{
+export const CreateAgentForm: FC<{
   user: SelectUser;
   game: GameKind;
   details: CreateAgentFormDetails;
@@ -1461,12 +2134,12 @@ app.post("/g/:game/a/create_agent", async (c: GamePlayContext) => {
     };
 
     return c.render(
-      <CreateConnect4AgentForm
+      <CreateAgentForm
         user={user}
         game={game}
         details={details}
       >
-      </CreateConnect4AgentForm>,
+      </CreateAgentForm>,
     );
   }
 
@@ -1528,7 +2201,7 @@ app.get("/g/:game/a", async (c: GamePlayContext) => {
       <div class="grow">
         <div class="flex">
           <div class="container">
-            <CreateConnect4AgentForm
+            <CreateAgentForm
               user={user}
               game={game}
               details={{
