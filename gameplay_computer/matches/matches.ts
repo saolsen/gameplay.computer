@@ -12,14 +12,14 @@ import {
   PlayerKind,
   Status,
   Unreachable,
-} from "../gameplay_game.ts";
+} from "../games/game.ts";
 import {
   Connect4,
   Connect4Action,
   Connect4State,
-} from "../gameplay_connect4.ts";
+} from "../games/connect4/connect4.ts";
 
-import { trace, traced, tracedFetch } from "./tracing.ts";
+import { trace, traced, tracedFetch } from "../tracing.ts";
 import {
   Action,
   AgentId,
@@ -31,10 +31,10 @@ import {
   SelectUser,
   Todo,
   UserId,
-} from "./schema.ts";
-import { fetchUserByUsername } from "./users.ts";
-import { fetchAgentByUsernameAndAgentname } from "./agents.ts";
-import { Poker, PokerAction, PokerState } from "../gameplay_poker.ts";
+} from "../schema.ts";
+import { fetchUserByUsername } from "../users.ts";
+import { fetchAgentByUsernameAndAgentname } from "../agents/agents.ts";
+import { Poker, PokerAction, PokerState } from "../games/poker/poker.ts";
 
 export function matchId(): MatchId {
   return `m_${Uuid25.fromBytes(uuidv7obj().bytes).value}` as MatchId;

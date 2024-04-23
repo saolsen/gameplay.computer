@@ -3,9 +3,9 @@ import { Uuid25 } from "uuid25";
 import { uuidv7obj } from "uuidv7";
 import { and, eq } from "drizzle-orm";
 
-import { GameKind, Name } from "../gameplay_game.ts";
+import { GameKind, Name } from "../games/game.ts";
 
-import { traced } from "./tracing.ts";
+import { traced } from "../tracing.ts";
 import {
   AgentId,
   AgentSlug,
@@ -18,7 +18,7 @@ import {
   SelectUser,
   Url,
   UserId,
-} from "./schema.ts";
+} from "../schema.ts";
 
 export function agentId(): AgentId {
   return `a_${Uuid25.fromBytes(uuidv7obj().bytes).value}` as AgentId;

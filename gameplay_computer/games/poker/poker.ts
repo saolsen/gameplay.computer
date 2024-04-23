@@ -1,14 +1,8 @@
 // Texas Hold'em Poker
 import { z } from "npm:zod@3.22.4";
 
-import {
-  type Game,
-  GameError,
-  Player,
-  Status,
-  Unreachable,
-} from "./gameplay_game.ts";
-export { type Game, GameError, Player, Status } from "./gameplay_game.ts";
+import { type Game, GameError, Player, Status, Unreachable } from "../game.ts";
+export { type Game, GameError, Player, Status } from "../game.ts";
 
 export const RANKS = [
   "ace_low",
@@ -584,14 +578,6 @@ export function applyAction(
 
   const round = state.rounds[state.round];
   const num_players = state.player_chips.length;
-
-  //  this part is very weird for some reason.
-  // folding messes with the order, and it also messes with the first player marker
-  // the first player marker is important for starting the next stage and also recognizing
-  // the end of the round if everybody checks.
-
-  // another thing to figure out, if you are all in, then your turn gets skipped but you are not out or folded.
-  // that's another status? all-in?
 
   switch (action.action) {
     case "fold": {

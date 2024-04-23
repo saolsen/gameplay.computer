@@ -1,10 +1,10 @@
 import { z } from "zod";
 
-import { Unreachable } from "../gameplay_game.ts";
+import { Unreachable } from "./games/game.ts";
 
 import { GamePlayDB, MatchId } from "./schema.ts";
 import { attribute, getPropB3, traceTask } from "./tracing.ts";
-import { takeMatchAgentTurn } from "./matches.ts";
+import { takeMatchAgentTurn } from "./matches/matches.ts";
 
 export const AgentTurnTask = z.object({
   kind: z.literal("agent_turn"),
