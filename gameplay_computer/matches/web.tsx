@@ -1121,8 +1121,8 @@ app.post("/g/:game/m/create_match", async (c: GamePlayContext) => {
           form = {
             game: game,
             players: [
-              { type: "me", name: user.username as string },
-              { type: "me", name: user.username as string },
+              { type: "me", name: user.username },
+              { type: "me", name: user.username },
             ],
           };
           break;
