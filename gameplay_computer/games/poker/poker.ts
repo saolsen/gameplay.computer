@@ -450,45 +450,61 @@ export function newGame(
   shuffle(round_deck);
 
   const player_status: RoundPlayerStatus[] = [];
+  const player_chips: number[] = [];
   const player_bets: number[] = [];
   const player_cards: [Card, Card][] = [];
 
   for (let i = 0; i < players.length; i++) {
     player_status.push("playing");
+    player_chips.push(100);
     player_bets.push(0);
     player_cards.push([round_deck.pop()!, round_deck.pop()!]);
   }
 
+  // TODO: The person who posts the big blind should get a chance to raise
+  // before the flop. Right now that's a bug because if it gets back around
+  // to him all bets will match and the round will end.
+
+  let bet = 0;
+  let current_player = 1;
+
+  const round_blinds = players.length === 2 ? [2, 1] : [1, 2];
+  const small_blind = Math.min(player_chips[current_player], round_blinds[0]);
+  player_chips[current_player] -= small_blind;
+  player_bets[current_player] += small_blind;
+  bet = small_blind;
+
+  current_player = playerAfter(current_player, player_status)!;
+
+  const big_blind = Math.min(player_chips[current_player], round_blinds[1]);
+  player_chips[current_player] -= big_blind;
+  player_bets[current_player] += big_blind;
+  bet = Math.max(small_blind, big_blind);
+
+  current_player = playerAfter(current_player, player_status)!;
+
   return [{
     game: "poker",
-    player_chips: players.map((_) => 100),
+    player_chips,
     blinds: [1, 2],
     round: 0,
     rounds: [{
       stage: "preflop",
       deck: round_deck,
       table_cards: [],
-      bet: 0,
+      bet,
       pot: 0,
       dealer: 0,
-      current_player: 1,
+      current_player,
       player_status,
       player_bets,
       player_cards,
     }],
-  }, { status: "in_progress", active_player: 1 }];
-}
-
-// todo
-export function checkStatus(state: PokerState): Status | GameError {
-  return {
-    status: "in_progress",
-    active_player: state.rounds[state.round].current_player,
-  };
+  }, { status: "in_progress", active_player: current_player }];
 }
 
 export function checkAction(
-  state: PokerState,
+  state: PokerState | PokerView,
   player: number,
   action: PokerAction,
 ): null | GameError {
@@ -624,6 +640,8 @@ export function applyAction(
     }
   }
 
+  const round_player = round.current_player;
+
   round.current_player = playerAfter(
     round.current_player,
     round.player_status,
@@ -633,6 +651,7 @@ export function applyAction(
   check_stage_over: {
     // If no one else can go, the stage is over.
     if (round.current_player === null) {
+      round.current_player = round_player;
       stage_over = true;
       break check_stage_over;
     }
@@ -641,6 +660,15 @@ export function applyAction(
     if (
       round.bet === 0 &&
       round.current_player === playerAfter(round.dealer, round.player_status)
+    ) {
+      stage_over = true;
+      break check_stage_over;
+    }
+
+    // If everyone except one person has folded, the stage is over.
+    if (
+      round.player_status.filter((s) => s === "playing" || s === "all-in")
+        .length === 1
     ) {
       stage_over = true;
       break check_stage_over;
@@ -686,6 +714,7 @@ export function applyAction(
       for (let i = 0; i < 5 - num_table_cards; i++) {
         round.table_cards.push(round.deck.pop()!);
       }
+      round.current_player = round_player;
       round.stage = "showdown";
       round_over = true;
     } else {
@@ -829,8 +858,37 @@ export function applyAction(
     round.dealer,
     next_round_player_status,
   )!;
-  const next_round_current_player = playerAfter(
+  let next_round_current_player = playerAfter(
     next_round_dealer,
+    next_round_player_status,
+  )!;
+
+  let bet = 0;
+
+  const round_blinds = players_left === 2 ? [2, 1] : [1, 2];
+  const small_blind = Math.min(
+    state.player_chips[next_round_current_player],
+    round_blinds[0],
+  );
+  state.player_chips[next_round_current_player] -= small_blind;
+  next_round_player_bets[next_round_current_player] += small_blind;
+  bet = small_blind;
+
+  next_round_current_player = playerAfter(
+    next_round_current_player,
+    next_round_player_status,
+  )!;
+
+  const big_blind = Math.min(
+    state.player_chips[next_round_current_player],
+    round_blinds[1],
+  );
+  state.player_chips[next_round_current_player] -= big_blind;
+  next_round_player_bets[next_round_current_player] += big_blind;
+  bet = Math.max(small_blind, big_blind);
+
+  next_round_current_player = playerAfter(
+    next_round_current_player,
     next_round_player_status,
   )!;
 
@@ -839,7 +897,7 @@ export function applyAction(
     stage: "preflop",
     deck: next_round_deck,
     table_cards: [],
-    bet: 0,
+    bet,
     pot: 0,
     dealer: next_round_dealer,
     current_player: next_round_current_player,

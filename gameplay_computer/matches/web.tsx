@@ -1,7 +1,7 @@
 /** @jsxImportSource hono/jsx */
 import { z } from "zod";
 import { Hono } from "hono";
-import { Child, FC } from "npm:hono@4.2.2/jsx";
+import { Child, FC } from "hono/jsx";
 import { streamSSE } from "hono/streaming";
 
 import { GameKind, Name, Player, Unreachable } from "../games/game.ts";
@@ -591,7 +591,7 @@ export const PokerMatch: FC<{
             <div>
               <div class="grid grid-cols-2">
                 <span class="text-xl">
-                  Round {state.round}:{" "}
+                  Round {state.round + 1}:{" "}
                   {round.stage[0].toUpperCase() + round.stage.slice(1)}
                 </span>
                 <span class="text-xl">
@@ -678,7 +678,7 @@ export const PokerMatch: FC<{
                           ),
                         })}
                       >
-                        {round.bet - round.player_bets[i] >
+                        {round.bet - round.player_bets[i] >=
                             state.player_chips[i]
                           ? "All in"
                           : "Call"}

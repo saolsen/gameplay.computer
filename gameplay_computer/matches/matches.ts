@@ -622,6 +622,21 @@ export async function _takeMatchAgentTurn(
 
   const state = match_view.current_turn.state;
 
+  let view;
+  switch (match_view.game) {
+    case "connect4": {
+      view = Connect4.getView(state as Connect4State, player_i);
+      break;
+    }
+    case "poker": {
+      view = Poker.getView(state as PokerState, player_i);
+      break;
+    }
+    default: {
+      throw new Unreachable(match_view);
+    }
+  }
+
   // Query the agent for the action.
   let response: { kind: "error"; reason: string } | { kind: "ok"; json: Json };
   try {
@@ -630,7 +645,7 @@ export async function _takeMatchAgentTurn(
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(state),
+      body: JSON.stringify(view),
     });
 
     if (!resp.ok) {
