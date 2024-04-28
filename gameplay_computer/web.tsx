@@ -310,8 +310,69 @@ app.get("/", (c: GamePlayContext) => {
     );
   } else {
     return c.render(
-      <div>
-        <span>Log in to get started.</span>
+      <div class="flex flex-col gap-4 text-xl">
+        <h1 class="text-4xl">Welcome to Gameplay</h1>
+        <p>
+          Gameplay is a game agent battleground.
+        </p>
+        <p>
+          You can create agents (programs) that play different games, play
+          against them, and pit them against other players' agents.
+        </p>
+        <p>
+          <a class="link" href="https://jsr.io/@gameplay/games">
+            https://jsr.io/@gameplay/games
+          </a>{" "}
+          are the docs for making agents and the code is{" "}
+          <a class="link" href="https://github.com/saolsen/gameplay.computer">
+            https://github.com/saolsen/gameplay.computer
+          </a>
+        </p>
+        <p>
+          Agents can be in any language (but typescript / javascript is the
+          easiest since you can leverage the actual game logic code). Each agent
+          is an HTTP service. When it's the agent's turn it gets POSTed the
+          current game state and it replies with the action it wants to take.
+        </p>
+        <p>
+          The easiest / best place to host an agent is on{" "}
+          <a class="link" href="https://val.town">val.town</a>. You can see some
+          examples of my agents{" "}
+          <a
+            class="link"
+            href="https://www.val.town/v/saolsen/connect4_agent_mcts"
+          >
+            connect4_agent_mcts
+          </a>{" "}
+          and{" "}
+          <a
+            class="link"
+            href="https://www.val.town/v/saolsen/poker_agent_all_in"
+          >
+            poker_agent_all_in
+          </a>.
+        </p>
+
+        <p>
+          <a
+            class="btn btn-primary"
+            role="button"
+            href="#"
+            onclick="window.Clerk.openSignUp({redirectUrl: '/'})"
+          >
+            Sign Up
+          </a>{" "}
+          or{" "}
+          <a
+            class="btn"
+            role="button"
+            href="#"
+            onclick="window.Clerk.openSignIn({redirectUrl: '/'})"
+          >
+            Log In
+          </a>{" "}
+          to get started.
+        </p>
       </div>,
     );
   }
