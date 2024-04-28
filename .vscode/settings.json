@@ -1,0 +1,30 @@
+{
+  "editor.rulers": [
+    80
+  ],
+  "deno.enable": true,
+  "cSpell.words": [
+    "agentname",
+    "elems",
+    "gameplay",
+    "gamestate",
+    "Hono",
+    "libsql",
+    "opentelemetry",
+    "otel",
+    "OTLP",
+    "preflop",
+    "SEMRESATTRS",
+    "uuidv",
+    "vals",
+    "versionstamp"
+  ],
+  "editor.formatOnSave": true,
+  "prettier.enable": false,
+  "[typescript]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  }
+}

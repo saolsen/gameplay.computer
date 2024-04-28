@@ -1,0 +1,10 @@
+{
+  "name": "@gameplay/games",
+  "version": "0.1.1",
+  "exports": {
+    ".": "./mod.ts",
+    "./connect4": "./connect4.ts",
+    "./poker": "./poker.ts",
+    "./agent": "./agent.ts"
+  }
+}

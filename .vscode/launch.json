@@ -1,0 +1,100 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "request": "launch",
+      "name": "gameplay_computer",
+      "type": "node",
+      "program": "${workspaceFolder}/main.ts",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "/Users/steve/.deno/bin/deno",
+      "runtimeArgs": [
+        "run",
+        "--unstable-kv",
+        "--inspect-wait",
+      ],
+    },
+    {
+      "request": "launch",
+      "name": "connect4_agent_rand",
+      "type": "node",
+      "program": "${workspaceFolder}/agents/agent.ts",
+      "args": ["connect4_agent_rand", "8001"],
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "/Users/steve/.deno/bin/deno",
+      "runtimeArgs": [
+        "run",
+        "--inspect-wait",
+      ],
+    },
+    {
+      "request": "launch",
+      "name": "connect4_agent_mcts",
+      "type": "node",
+      "program": "${workspaceFolder}/agents/agent.ts",
+      "args": ["connect4_agent_mcts", "8002"],
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "/Users/steve/.deno/bin/deno",
+      "runtimeArgs": [
+        "run",
+        "--inspect-wait",
+      ],
+    },
+    {
+      "request": "launch",
+      "name": "connect4_agent_fails",
+      "type": "node",
+      "program": "${workspaceFolder}/agents/agent.ts",
+      "args": ["connect4_agent_fails", "8003"],
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "/Users/steve/.deno/bin/deno",
+      "runtimeArgs": [
+        "run",
+        "--inspect-wait",
+      ],
+    },
+    {
+      "request": "launch",
+      "name": "poker_agent_folds",
+      "type": "node",
+      "program": "${workspaceFolder}/agents/agent.ts",
+      "args": ["poker_agent_folds", "8004"],
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "/Users/steve/.deno/bin/deno",
+      "runtimeArgs": [
+        "run",
+        "--inspect-wait",
+      ],
+    },
+    {
+      "request": "launch",
+      "name": "poker_agent_all_in",
+      "type": "node",
+      "program": "${workspaceFolder}/agents/agent.ts",
+      "args": ["poker_agent_all_in", "8005"],
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "/Users/steve/.deno/bin/deno",
+      "runtimeArgs": [
+        "run",
+        "--inspect-wait",
+      ],
+    }
+  ],
+  "compounds": [
+    {
+      "name": "all",
+      "configurations": [
+        "gameplay_computer", 
+        "connect4_agent_rand",
+        "connect4_agent_mcts",
+        "connect4_agent_fails",
+        "poker_agent_folds",
+        "poker_agent_all_in"
+      ],
+      "stopAll": true
+    }
+  ]
+}
