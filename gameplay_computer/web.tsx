@@ -306,6 +306,10 @@ app.get("/", (c: GamePlayContext) => {
             @gameplay/games
           </a>
         </p>
+        <p>
+          There's also a{" "}
+          <a class="link" href="https://discord.gg/3c9w2AqygD">discord</a>
+        </p>
       </div>,
     );
   } else {
